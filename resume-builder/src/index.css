@@ -1,0 +1,254 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #213547;
+  background-color: #ffffff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === Resume Container Setup === */
+.resume-container {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 15mm 15mm; /* Reduced top padding */
+  background-color: #ffffff;
+  color: #333333;
+  font-family: 'Poppins', sans-serif;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  gap: 1rem; /* Reduced gap */
+}
+
+/* === Heading Styles === */
+.resume-container h1 {
+  font-size: 22pt;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.25rem; /* Reduced margin */
+  line-height: 1.2;
+}
+
+.resume-container h2 {
+  font-size: 14pt;
+  font-weight: 600;
+  border-bottom: 2px solid #4f46e5;
+  margin: 0.5rem 0 0.5rem; /* Reduced margin */
+  padding-bottom: 0.25rem; /* Reduced padding */
+  line-height: 1.3;
+  color: #1e293b;
+}
+
+.resume-container h3 {
+  font-size: 11pt;
+  font-weight: 600;
+  margin: 0.4rem 0 0.2rem; /* Reduced margin */
+  line-height: 1.2;
+  color: #334155;
+}
+
+/* === Section Margins === */
+.resume-section {
+  margin-bottom: 1rem; /* Reduced margin */
+}
+
+/* === Contact Info === */
+.contact-info {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem 1.2rem; /* Reduced gap */
+  margin-bottom: 1rem; /* Reduced margin */
+  font-size: 9.5pt; /* Smaller font */
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.75rem; /* Reduced padding */
+}
+
+.contact-info span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  line-height: 1.3;
+}
+
+/* === List Improvements === */
+.resume-container ul {
+  padding-left: 1rem; /* Reduced padding */
+  margin: 0.4rem 0; /* Reduced margin */
+}
+
+.resume-container li {
+  margin-bottom: 0.3rem; /* Reduced margin */
+  line-height: 1.4;
+  font-size: 9.5pt; /* Smaller font */
+}
+
+/* === Chip Section === */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem; /* Reduced gap */
+  margin-top: 0.4rem; /* Reduced margin */
+}
+
+.chip {
+  font-size: 8.5pt; /* Smaller font */
+  background-color: #eef2ff;
+  padding: 0.2rem 0.6rem; /* Reduced padding */
+  border-radius: 999px;
+  line-height: 1.2;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+}
+
+/* === Skills Section === */
+.skills-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Smaller min-width */
+  gap: 0.8rem; /* Reduced gap */
+  margin-bottom: 1rem; /* Reduced margin */
+}
+
+.skill-category {
+  margin-bottom: 0.5rem; /* Reduced margin */
+}
+
+.skill-category h3 {
+  font-size: 10pt; /* Smaller font */
+  font-weight: 600;
+  color: #4f46e5;
+  margin-bottom: 0.4rem; /* Reduced margin */
+  display: flex;
+  align-items: center;
+  gap: 0.4rem; /* Reduced gap */
+}
+
+.skill-category h3 i {
+  font-size: 10pt; /* Smaller font */
+}
+
+.skill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem; /* Reduced gap */
+}
+
+/* === Certifications Section === */
+.certification-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem; /* Reduced margin */
+  padding-bottom: 0.3rem; /* Reduced padding */
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.cert-name {
+  font-weight: 500;
+  font-size: 9.5pt; /* Smaller font */
+  flex: 2; /* More space for name */
+}
+
+.cert-issuer {
+  font-size: 9pt; /* Smaller font */
+  color: #4b5563;
+  font-style: italic;
+  flex: 1; /* Less space for issuer */
+  text-align: right; /* Align issuer to right */
+}
+
+/* === Experience & Education === */
+.experience-item,
+.education-item {
+  margin-bottom: 1rem; /* Reduced margin */
+  page-break-inside: avoid;
+  position: relative; /* For date positioning */
+}
+
+.job-title {
+  font-weight: 600;
+  font-size: 10pt; /* Smaller font */
+  color: #1e293b;
+  display: inline-block;
+  width: 70%; /* Prevent overlap with date */
+}
+
+.company-name {
+  font-weight: 500;
+  font-size: 9.5pt; /* Smaller font */
+  color: #4b5563;
+  display: block; /* Ensure it's on new line */
+}
+
+/* === Date Alignment (Right-aligned) === */
+.date-range {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-weight: 500;
+  font-size: 9pt; /* Smaller font */
+  color: #64748b;
+  text-align: right;
+  width: 30%; /* Fixed width to prevent overlap */
+}
+
+/* === Summary Section === */
+.summary {
+  font-size: 10pt;
+  line-height: 1.5; /* Tighter line height */
+  text-align: justify;
+}
+
+/* === Remove button visibility === */
+.remove-btn {
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: inline-flex !important;
+}
+
+/* === PDF / Print View Adjustments === */
+@media print {
+  body, html {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .resume-container {
+    padding: 12mm 10mm !important; /* Smaller padding */
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    gap: 0.8rem !important; /* Reduced gap */
+  }
+
+  .resume-section {
+    page-break-inside: avoid;
+    margin-bottom: 0.8rem !important; /* Reduced margin */
+  }
+
+  .contact-info {
+    padding-bottom: 0.6rem !important; /* Reduced padding */
+  }
+
+  .chip {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure dates don't break to new line */
+  .date-range {
+    white-space: nowrap;
+  }
+}

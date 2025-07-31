@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Resume - Modern Dark Template</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --dark-1: #0f172a;
+            --dark-2: #1e293b;
+            --dark-3: #334155;
+            --light-1: #f1f5f9;
+            --light-2: #e2e8f0;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        body {
+            background-color: #0b0f19;
+            color: var(--light-2);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 20%);
+        }
+
+        .resume-container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 2rem;
+            perspective: 2000px;
+        }
+
+        /* Left Column - Profile & Contact */
+        .profile-section {
+            background: linear-gradient(160deg, var(--dark-1) 0%, var(--dark-2) 100%);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            transform: rotateY(-5deg);
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-section:hover {
+            transform: rotateY(0deg);
+        }
+
+        .profile-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+            z-index: 0;
+        }
+
+        .profile-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .profile-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.1);
+        }
+
+        .profile-photo {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            margin: 0 auto 1.5rem;
+            border: 4px solid var(--primary);
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(45deg, var(--dark-3), var(--dark-2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+        }
+
+        .profile-photo i {
+            font-size: 4rem;
+            color: var(--primary);
+        }
+
+        .name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            letter-spacing: -0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .title {
+            font-size: 1.25rem;
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 1.5rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 50px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+
+        .contact-info {
+            margin-bottom: 2.5rem;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            padding: 0.8rem;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .contact-item:hover {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: var(--primary);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .contact-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+
+        .contact-icon i {
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+
+        .skills-container {
+            margin-bottom: 2.5rem;
+        }
+
+        .skill-category {
+            margin-bottom: 1.8rem;
+        }
+
+        .skill-item {
+            margin-bottom: 1rem;
+        }
+
+        .skill-name {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            color: var(--light-1);
+        }
+
+        .skill-bar {
+            height: 8px;
+            background: var(--dark-3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .skill-level {
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        .tech .skill-level {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+
+        .design .skill-level {
+            background: var(--accent);
+        }
+
+        .soft .skill-level {
+            background: var(--success);
+        }
+
+        /* Right Column - Content */
+        .content-section {
+            background: linear-gradient(160deg, var(--dark-2) 0%, var(--dark-1) 100%);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            transform: rotateY(5deg);
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .content-section:hover {
+            transform: rotateY(0deg);
+        }
+
+        .section {
+            margin-bottom: 3rem;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .section-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1.5rem;
+            flex-shrink: 0;
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .section-icon i {
+            font-size: 1.8rem;
+            color: white;
+        }
+
+        .experience-item, .education-item {
+            position: relative;
+            padding-left: 30px;
+            margin-bottom: 2.5rem;
+            border-left: 2px solid var(--primary);
+        }
+
+        .experience-item::before, .education-item::before {
+            content: '';
+            position: absolute;
+            left: -10px;
+            top: 8px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.3);
+        }
+
+        .experience-header, .education-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .company, .degree {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .position, .institution {
+            font-size: 1.1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .date {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .description {
+            color: var(--light-2);
+            margin-top: 0.8rem;
+        }
+
+        .badge-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-top: 1.5rem;
+        }
+
+        .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid var(--dark-3);
+            transition: all 0.3s ease;
+        }
+
+        .badge:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .tech-badge {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .design-badge {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .soft-badge {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .resume-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .profile-section, .content-section {
+                transform: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .profile-section, .content-section {
+                padding: 1.5rem;
+            }
+            
+            .name {
+                font-size: 2rem;
+            }
+            
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .section-icon {
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* Animation */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="resume-container">
+        <!-- Left Column - Profile & Contact -->
+        <div class="profile-section floating">
+            <div class="profile-content">
+                <div class="profile-header">
+                    <div class="profile-photo">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h1 class="name">ALEX MORGAN</h1>
+                    <div class="title">SENIOR UI/UX DESIGNER</div>
+                </div>
+                
+                <div class="contact-info">
+                    <h2 class="section-title">Contact</h2>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-phone"></i>
+                        </div>
+                        <div>
+                            <div>Phone</div>
+                            <div>(647) 885.8493</div>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div>
+                            <div>Email</div>
+                            <div>alex@nexusdesign.ca</div>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <div>
+                            <div>Website</div>
+                            <div>www.nexusdesign.ca</div>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div>
+                            <div>Location</div>
+                            <div>Toronto, Canada</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="skills-container">
+                    <h2 class="section-title">Skills</h2>
+                    
+                    <div class="skill-category">
+                        <h3>Technical</h3>
+                        <div class="skill-item tech">
+                            <div class="skill-name">
+                                <span>Figma</span>
+                                <span>95%</span>
+                            </div>
+                            <div class="skill-bar">
+                                <div class="skill-level" style="width: 95%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="skill-item tech">
+                            <div class="skill-name">
+                                <span>Adobe Creative Suite</span>
+                                <span>90%</span>
+                            </div>
+                            <div class="skill-bar">
+                                <div class="skill-level" style="width: 90%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="skill-item tech">
+                            <div class="skill-name">
+                                <span>HTML/CSS</span>
+                                <span>85%</span>
+                            </div>
+                            <div class="skill-bar">
+                                <div class="skill-level" style="width: 85%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="skill-category">
+                        <h3>Design</h3>
+                        <div class="skill-item design">
+                            <div class="skill-name">
+                                <span>UI Design</span>
+                                <span>98%</span>
+                            </div>
+                            <div class="skill-bar">
+                                <div class="skill-level" style="width: 98%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="skill-item design">
+                            <div class="skill-name">
+                                <span>UX Research</span>
+                                <span>92%</span>
+                            </div>
+                            <div class="skill-bar">
+                                <div class="skill-level" style="width: 92%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="skill-category">
+                        <h3>Soft Skills</h3>
+                        <div class="skill-item soft">
+                            <div class="skill-name">
+                                <span>Communication</span>
+                                <span>90%</span>
+                            </div>
+                            <div class="skill-bar">
+                                <div class="skill-level" style="width: 90%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="skill-item soft">
+                            <div class="skill-name">
+                                <span>Team Leadership</span>
+                                <span>88%</span>
+                            </div>
+                            <div class="skill-bar">
+                                <div class="skill-level" style="width: 88%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column - Content -->
+        <div class="content-section floating" style="animation-delay: 0.5s;">
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h2 class="section-title">Profile</h2>
+                </div>
+                <p class="description">
+                    Innovative UI/UX designer with 8+ years of experience creating intuitive and engaging digital experiences. Passionate about solving complex problems through user-centered design principles. Proven track record of delivering impactful solutions for Fortune 500 companies and startups alike.
+                </p>
+            </div>
+            
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="fas fa-briefcase"></i>
+                    </div>
+                    <h2 class="section-title">Experience</h2>
+                </div>
+                
+                <div class="experience-item">
+                    <div class="experience-header">
+                        <div>
+                            <div class="company">CREATIVE TECH SOLUTIONS</div>
+                            <div class="position">Lead UI/UX Designer</div>
+                        </div>
+                        <div class="date">2020 - Present</div>
+                    </div>
+                    <p class="description">
+                        Directed design vision for enterprise SaaS platform used by 50k+ users. Implemented design system that reduced development time by 30%. Led team of 5 designers through complete product redesign.
+                    </p>
+                    <div class="badge-container">
+                        <div class="badge tech-badge">Figma</div>
+                        <div class="badge tech-badge">Design Systems</div>
+                        <div class="badge tech-badge">User Research</div>
+                        <div class="badge soft-badge">Team Leadership</div>
+                    </div>
+                </div>
+                
+                <div class="experience-item">
+                    <div class="experience-header">
+                        <div>
+                            <div class="company">INNOVATE DIGITAL AGENCY</div>
+                            <div class="position">Senior UI Designer</div>
+                        </div>
+                        <div class="date">2017 - 2020</div>
+                    </div>
+                    <p class="description">
+                        Designed interfaces for mobile apps and web platforms across various industries. Collaborated with developers to implement pixel-perfect designs. Created interactive prototypes for client presentations.
+                    </p>
+                    <div class="badge-container">
+                        <div class="badge tech-badge">Sketch</div>
+                        <div class="badge tech-badge">Prototyping</div>
+                        <div class="badge design-badge">Interaction Design</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h2 class="section-title">Education</h2>
+                </div>
+                
+                <div class="education-item">
+                    <div class="education-header">
+                        <div>
+                            <div class="degree">MASTER OF DESIGN</div>
+                            <div class="institution">TORONTO DESIGN INSTITUTE</div>
+                        </div>
+                        <div class="date">2015 - 2017</div>
+                    </div>
+                    <p class="description">
+                        Specialized in Human-Computer Interaction and User Experience Design. Thesis on "Emotional Design in Financial Applications" received departmental honors.
+                    </p>
+                </div>
+                
+                <div class="education-item">
+                    <div class="education-header">
+                        <div>
+                            <div class="degree">BACHELOR OF ARTS</div>
+                            <div class="institution">ONTARIO COLLEGE OF ART</div>
+                        </div>
+                        <div class="date">2011 - 2015</div>
+                    </div>
+                    <p class="description">
+                        Major in Visual Communication with minor in Digital Media. Graduated with distinction and received the Dean's Award for Design Excellence.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="fas fa-medal"></i>
+                    </div>
+                    <h2 class="section-title">Achievements</h2>
+                </div>
+                <div class="badge-container">
+                    <div class="badge tech-badge">AWWWARDS Site of the Day (2022)</div>
+                    <div class="badge design-badge">Figma Community Spotlight</div>
+                    <div class="badge soft-badge">Design Leadership Award</div>
+                    <div class="badge tech-badge">CSS Design Awards</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add subtle floating animation to sections on mouse move
+        document.addEventListener('mousemove', (e) => {
+            const x = (window.innerWidth / 2 - e.pageX) / 25;
+            const y = (window.innerHeight / 2 - e.pageY) / 25;
+            
+            const profile = document.querySelector('.profile-section');
+            const content = document.querySelector('.content-section');
+            
+            if (profile) {
+                profile.style.transform = `rotateY(${-x}deg) rotateX(${y}deg)`;
+            }
+            
+            if (content) {
+                content.style.transform = `rotateY(${x}deg) rotateX(${y}deg)`;
+            }
+        });
+        
+        // Reset rotation when mouse leaves
+        document.querySelector('.resume-container').addEventListener('mouseleave', () => {
+            const profile = document.querySelector('.profile-section');
+            const content = document.querySelector('.content-section');
+            
+            if (profile) {
+                profile.style.transform = 'rotateY(-5deg)';
+            }
+            
+            if (content) {
+                content.style.transform = 'rotateY(5deg)';
+            }
+        });
+    </script>
+</body>
+</html>
