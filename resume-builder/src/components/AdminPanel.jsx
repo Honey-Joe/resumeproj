@@ -18,7 +18,7 @@ const AdminPanel = () => {
       try {
         const token = localStorage.getItem("adminToken");
         const response = await axios.get(
-          "http://localhost:8000/get_users.php",
+          "https://apiresumebbuilder.freewilltech.in/get_users.php",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -79,7 +79,7 @@ const AdminPanel = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      await axios.post("http://localhost:8000/deleteUser.php", { id });
+      await axios.post("https://apiresumebbuilder.freewilltech.in/deleteUser.php", { id });
       setUsers(prev => prev.filter(u => u.id !== id));
     } catch (err) {
       console.error("Delete failed:", err);
