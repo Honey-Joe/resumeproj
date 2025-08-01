@@ -1,0 +1,123 @@
+[31-Jul-2025 07:10:05 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Access denied for user 'root'@'localhost' (using password: YES) in /home4/freewmbl/apiresumebbuilder.freewilltech.in/db.php:8
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/db.php(8): mysqli->__construct('localhost', 'root', Object(SensitiveParameterValue), 'resumebuild')
+#1 /home4/freewmbl/apiresumebbuilder.freewilltech.in/test.php(2): require_once('/home4/freewmbl...')
+#2 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/db.php on line 8
+[31-Jul-2025 08:01:29 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:48
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(48): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 48
+[31-Jul-2025 08:02:28 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:48
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(48): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 48
+[31-Jul-2025 09:07:24 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:48
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(48): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 48
+[31-Jul-2025 16:54:05 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php:42
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php(42): mysqli->query('SELECT id, name...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php on line 42
+[31-Jul-2025 17:09:14 UTC] Unknown column 'last_login' in 'field list'
+[31-Jul-2025 17:09:14 UTC] PHP Warning:  http_response_code(): Cannot set response code - headers already sent (output started at /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:84) in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 86
+[31-Jul-2025 17:11:07 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:48
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(48): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 48
+[31-Jul-2025 17:11:50 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:48
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(48): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 48
+[31-Jul-2025 17:12:52 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php:42
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php(42): mysqli->query('SELECT id, name...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php on line 42
+[31-Jul-2025 17:19:04 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php:42
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php(42): mysqli->query('SELECT id, name...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/get_users.php on line 42
+[31-Jul-2025 17:26:57 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:48
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(48): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 48
+[31-Jul-2025 17:27:23 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:48
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(48): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 48
+[31-Jul-2025 17:28:31 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'IF NOT EXISTS last_login DATETIME DEFAULT NULL' at line 1 in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:54
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(54): mysqli->query('ALTER TABLE use...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 54
+[31-Jul-2025 17:29:37 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'IF NOT EXISTS last_login DATETIME DEFAULT NULL' at line 1 in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:54
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(54): mysqli->query('ALTER TABLE use...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 54
+[31-Jul-2025 18:23:56 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'IF NOT EXISTS last_login DATETIME DEFAULT NULL' at line 1 in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:54
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(54): mysqli->query('ALTER TABLE use...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 54
+[31-Jul-2025 18:29:19 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'IF NOT EXISTS last_login DATETIME DEFAULT NULL' at line 1 in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:54
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(54): mysqli->query('ALTER TABLE use...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 54
+[01-Aug-2025 05:43:27 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:69
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(69): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 69
+[01-Aug-2025 05:43:35 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:69
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(69): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 69
+[01-Aug-2025 05:49:57 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:69
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(69): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 69
+[01-Aug-2025 05:59:50 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:69
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(69): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 69
+[01-Aug-2025 13:20:56 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:69
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(69): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 69
+[01-Aug-2025 13:37:22 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:69
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(69): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 69
+[01-Aug-2025 13:40:15 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:69
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(69): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 69
+[01-Aug-2025 14:56:01 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'last_login' in 'field list' in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:69
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(69): mysqli->prepare('UPDATE users SE...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 69
+[01-Aug-2025 14:57:43 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'IF NOT EXISTS last_login DATETIME DEFAULT NULL' at line 1 in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php:54
+Stack trace:
+#0 /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php(54): mysqli->query('ALTER TABLE use...')
+#1 {main}
+  thrown in /home4/freewmbl/apiresumebbuilder.freewilltech.in/login.php on line 54
