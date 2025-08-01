@@ -155,6 +155,7 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
               templateId: selectedTemplate,
               email: userEmail,
             });
+            console.log(verifyRes)
 
             if (verifyRes.data.status === 'success') {
               // Refresh unlocked templates from server
