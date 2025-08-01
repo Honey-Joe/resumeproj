@@ -80,7 +80,7 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
     if (!resumeData?.personal?.email) return;
 
     try {
-      const res = await fetch(`http://apiresumebbuilder.freewilltech.in/get_unlocked_templates.php?email=${userEmail}`);
+      const res = await fetch(`https://apiresumebbuilder.freewilltech.in/get_unlocked_templates.php?email=${userEmail}`);
       const data = await res.json();
       if (data.status === "success") {
         setUnlockedTemplates(data.templates);
@@ -116,7 +116,7 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
   setPaymentProcessing(true);
     try {
       // Create order with email
-      const response = await fetch("http://apiresumebbuilder.freewilltech.in/create_order.php", {
+      const response = await fetch("https://apiresumebbuilder.freewilltech.in/create_order.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -148,7 +148,7 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
         order_id: data.order_id,
         handler: async (response) => {
           try {
-            const verifyRes = await axios.post('http://apiresumebbuilder.freewilltech.in/verify-payment.php', {
+            const verifyRes = await axios.post('https://apiresumebbuilder.freewilltech.in/verify-payment.php', {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature,
