@@ -16,26 +16,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once 'db.php';
 
 // === Admin Token Auth Check ===
-$headers = array_change_key_case(getallheaders(), CASE_LOWER);
-$token = '';
+// $headers = array_change_key_case(getallheaders(), CASE_LOWER);
+// $token = '';
 
-if (isset($headers['authorization'])) {
-    $authHeader = $headers['authorization'];
-    if (stripos($authHeader, 'Bearer ') === 0) {
-        $token = trim(substr($authHeader, 7));
-    }
-}
+// if (isset($headers['authorization'])) {
+//     $authHeader = $headers['authorization'];
+//     if (stripos($authHeader, 'Bearer ') === 0) {
+//         $token = trim(substr($authHeader, 7));
+//     }
+// }
 
-$adminSecret = 'adminsecret'; // same as login.php
+// $adminSecret = 'adminsecret'; // same as login.php
 
-if ($token !== $adminSecret) {
-    http_response_code(403);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Unauthorized access. Invalid or missing token.'
-    ]);
-    exit;
-}
+// if ($token !== $adminSecret) {
+//     http_response_code(403);
+//     echo json_encode([
+//         'success' => false,
+//         'message' => 'Unauthorized access. Invalid or missing token.'
+//     ]);
+//     exit;
+// }
 
 // === Fetch Users Data ===
 $sql = "SELECT id, name, email, age, role, created_at FROM users ORDER BY created_at DESC";
