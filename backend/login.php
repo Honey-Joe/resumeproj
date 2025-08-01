@@ -1,9 +1,11 @@
 <?php
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
 
+// Handle CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
@@ -31,7 +33,11 @@ if ($admin && password_verify($password, $admin['password'])) {
     echo json_encode([
         'success' => true,
         'token' => 'adminsecret',  // must match get_users.php
-        'role' => 'admin'
+        'role' => 'admin',
+        'user' => [
+            'id' => $admin['id'],
+            'username' => $admin['username']
+        ]
     ]);
     exit;
 }
@@ -44,15 +50,16 @@ $result = $stmt->get_result();
 $user = $result->fetch_assoc();
 
 if ($user && password_verify($password, $user['password'])) {
-    // update last login
-    $updateLogin = $conn->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
-    $updateLogin->bind_param("i", $user['id']);
-    $updateLogin->execute();
-
     echo json_encode([
         'success' => true,
-        'token' => 'usersecret',  // optionally change to JWT later
-        'role' => 'user'
+        'token' => 'usersecret',  // must match your auth logic
+        'role' => 'user',
+        'user' => [
+            'id' => $user['id'],
+            'name' => $user['name'],
+            'email' => $user['email'],
+            'role' => $user['role']
+        ]
     ]);
     exit;
 }

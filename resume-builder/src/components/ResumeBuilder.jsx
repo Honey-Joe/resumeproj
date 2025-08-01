@@ -52,10 +52,10 @@ const ResumeBuilder = () => {
   useEffect(() => {
     const fetchUnlockedTemplates = async () => {
       try {
-        const email = resumeData?.personal?.email;
+        const email = localStorage.getItem("userEmail");
         if (email) {
           const response = await fetch(
-            `http://localhost:8000/get_unlocked_templates.php?email=${email}`
+            `http://apiresumebbuilder.freewilltech.in/get_unlocked_templates.php?email=${email}`
           );
           const data = await response.json();
           if (data.status === "success") {

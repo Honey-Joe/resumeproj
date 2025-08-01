@@ -47,7 +47,7 @@ const AuthPage = () => {
 
     try {
       const endpoint = isLoginMode ? 'login.php' : 'signup.php';
-      const url = `http://localhost:8000/${endpoint}`;
+      const url = `https://apiresumebbuilder.freewilltech.in/${endpoint}`;
 
       const payload = isLoginMode
         ? { identifier: formData.identifier, password: formData.password }
@@ -62,6 +62,8 @@ const AuthPage = () => {
         headers: { 'Content-Type': 'application/json' },
       });
 
+      console.log(data);
+
      if (data.success) {
   const { token, role } = data;
 
@@ -71,6 +73,8 @@ const AuthPage = () => {
   } else {
     localStorage.setItem("userToken", token);
     navigate("/builder", { replace: true });
+    localStorage.setItem("userName" , data?.user?.name)
+    localStorage.setItem("userEmail",data.user.email);
   }
       } else {
         setError(data.message || 'Authentication failed');

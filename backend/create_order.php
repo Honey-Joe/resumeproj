@@ -45,7 +45,7 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_USERPWD, "$key_id:$key_secret");
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // only for local/dev
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true); // only for local/dev
 
 $response = curl_exec($ch);
 $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -56,10 +56,12 @@ $result = json_decode($response, true);
 if ($http_status !== 200 || isset($result['error'])) {
     echo json_encode([
         "status" => "error",
-        "message" => $result['error']['description'] ?? "Order creation failed"
+        "message" => $result['error']['description'] ?? "Order creation failed",
+        "debug" => $result // Add this for debugging
     ]);
     exit;
 }
+
 
 echo json_encode([
     "status" => "success",
