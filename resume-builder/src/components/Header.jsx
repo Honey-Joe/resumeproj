@@ -113,7 +113,7 @@ const Header = ({ onExport }) => {
             whileHover={{ rotate: 360, scale: 1.1, transition: { duration: 0.6 } }}
           >
             <img
-              src=""
+              src="/resume logo.jpg"
               alt="FWT Logo"
               className="w-full h-full object-contain bg-white p-1"
             />
