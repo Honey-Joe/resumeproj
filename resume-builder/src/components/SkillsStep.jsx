@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,9 +36,9 @@ const SkillCategory = React.memo(({
           </motion.div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
-            {items.map((skill) => (
+            {items.map((skill, index) => (
               <motion.div
-                key={skill.id}
+                key={`${skill.id}-${index}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
@@ -202,45 +200,7 @@ const SkillsStep = ({ resumeData, updateResumeData }) => {
         </p>
       </div>
 
-      <div className="space-y-6">
-        <SkillCategory 
-          title="Soft Skills" 
-          icon="fas fa-comments" 
-          items={softSkills}
-          onRemoveItem={(id) => handleRemoveSkill('softSkills', id)}
-        />
-        
-        <SkillCategory 
-          title="Programming Languages" 
-          icon="fas fa-code" 
-          items={programmingSkills}
-          onRemoveItem={(id) => handleRemoveSkill('programmingSkills', id)}
-        />
-        
-        <SkillCategory 
-          title="Frameworks & Tools" 
-          icon="fas fa-cubes" 
-          items={frameworks}
-          onRemoveItem={(id) => handleRemoveSkill('frameworks', id)}
-        />
-        
-        <SkillCategory 
-          title="Languages" 
-          icon="fas fa-language" 
-          items={languages}
-          onRemoveItem={(id) => handleRemoveSkill('languages', id)}
-          hasLevel={true}
-        />
-        
-        <SkillCategory 
-          title="Certifications" 
-          icon="fas fa-certificate" 
-          items={certifications}
-          onRemoveItem={(id) => handleRemoveSkill('certifications', id)}
-        />
-      </div>
-
-      <motion.div 
+       <motion.div 
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.4 }}
@@ -335,6 +295,46 @@ const SkillsStep = ({ resumeData, updateResumeData }) => {
           </div>
         </div>
       </motion.div>
+
+      <div className="space-y-6">
+        <SkillCategory 
+          title="Soft Skills" 
+          icon="fas fa-comments" 
+          items={softSkills}
+          onRemoveItem={(id) => handleRemoveSkill('softSkills', id)}
+        />
+        
+        <SkillCategory 
+          title="Programming Languages" 
+          icon="fas fa-code" 
+          items={programmingSkills}
+          onRemoveItem={(id) => handleRemoveSkill('programmingSkills', id)}
+        />
+        
+        <SkillCategory 
+          title="Frameworks & Tools" 
+          icon="fas fa-cubes" 
+          items={frameworks}
+          onRemoveItem={(id) => handleRemoveSkill('frameworks', id)}
+        />
+        
+        <SkillCategory 
+          title="Languages" 
+          icon="fas fa-language" 
+          items={languages}
+          onRemoveItem={(id) => handleRemoveSkill('languages', id)}
+          hasLevel={true}
+        />
+        
+        <SkillCategory 
+          title="Certifications" 
+          icon="fas fa-certificate" 
+          items={certifications}
+          onRemoveItem={(id) => handleRemoveSkill('certifications', id)}
+        />
+      </div>
+
+     
     </div>
   );
 };
