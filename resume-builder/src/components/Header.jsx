@@ -50,6 +50,9 @@ const Header = ({ onExport }) => {
     sessionStorage.removeItem('user');
     localStorage.removeItem('userToken');
     localStorage.removeItem('adminToken');
+    localStorage.removeItem("userName")
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("resumedata");
     setIsAuthenticated(false);
     setUser(null);
     closeMobileMenu();
