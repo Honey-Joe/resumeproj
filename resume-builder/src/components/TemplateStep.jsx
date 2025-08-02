@@ -49,6 +49,7 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const userEmail = localStorage.getItem("userEmail");
   const userName = localStorage.getItem("userName");
 
@@ -105,8 +106,6 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
  const handlePayment = async () => {
   if (!selectedTemplate) return;
 
-
-
   // 🔐 Require login
   if (!userEmail || !userName) {
     alert("You must log in or complete your profile before purchasing a template.");
@@ -157,12 +156,12 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
             });
             console.log(verifyRes)
 
-            if (verifyRes.data.status === 'success') {
-              // Refresh unlocked templates from server
-              await fetchUnlockedTemplates();
-              // Force UI update
-              setSelectedTemplate(selectedTemplate); 
-            } else {
+          if (verifyRes.data.status === 'success') {
+  await fetchUnlockedTemplates();
+  setSelectedTemplate(selectedTemplate);
+  setShowSuccessPopup(true); // 🔔 Show success popup
+}
+             else {
               alert('Payment verification failed: ' + verifyRes.data.message);
             }
           } catch (err) {
@@ -377,70 +376,55 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
         );
     }
   };
+  
+   return (
+  <div className="max-w-4xl mx-auto px-3">
+    {/* Title and Description */}
+    <motion.h3 
+      className="text-xl font-bold mb-4 text-gray-800 flex items-center"
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <i className="fas fa-palette text-indigo-500 mr-2"></i>
+      Choose Your Template
+    </motion.h3>
 
-  return (
-    <div className="max-w-4xl mx-auto px-3">
-      <motion.h3 
-        className="text-xl font-bold mb-4 text-gray-800 flex items-center"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <i className="fas fa-palette text-indigo-500 mr-2"></i>
-        Choose Your Template
-      </motion.h3>
+    <motion.p 
+      className="text-sm text-gray-600 mb-5"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.1 }}
+    >
+      Select a template that matches your industry. All templates are free to use with watermark.
+    </motion.p>
 
-      <motion.p 
-        className="text-sm text-gray-600 mb-5"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-      >
-        Select a template that matches your industry. All templates are free to use with watermark.
-      </motion.p>
-
-      {/* Template Type Filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button 
+    {/* Filter Buttons */}
+    <div className="flex flex-wrap gap-2 mb-4">
+      {['all', 'theme', 'layout'].map(type => (
+        <button
+          key={type}
           className={`px-3 py-1 text-xs rounded-full font-medium ${
-            filter === 'all' 
-              ? 'bg-indigo-600 text-white' 
+            filter === type
+              ? 'bg-indigo-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
-          onClick={() => setFilter('all')}
+          onClick={() => setFilter(type)}
         >
-          All Templates
+          {type.charAt(0).toUpperCase() + type.slice(1)}{type === 'all' ? ' Templates' : 's'}
         </button>
-        <button 
-          className={`px-3 py-1 text-xs rounded-full font-medium ${
-            filter === 'theme' 
-              ? 'bg-indigo-600 text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-          onClick={() => setFilter('theme')}
-        >
-          Themes
-        </button>
-        <button 
-          className={`px-3 py-1 text-xs rounded-full font-medium ${
-            filter === 'layout' 
-              ? 'bg-indigo-600 text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-          onClick={() => setFilter('layout')}
-        >
-          Layouts
-        </button>
-      </div>
+      ))}
+    </div>
 
-      <div className="grid grid-cols-1 gap-3">
-        {templates
-          .filter(template => filter === 'all' || template.type === filter)
-          .map((template, index) => {
+    {/* Template Cards */}
+    <div className="grid grid-cols-1 gap-3">
+      {templates
+        .filter(template => filter === 'all' || template.type === filter)
+        .map((template, index) => {
           const colors = getTemplateColor(template.id);
           const isSelected = selectedTemplate === template.id;
           const isLayout = template.type === 'layout';
-          
+
           return (
             <div className="relative" key={template.id}>
               {isSelected && (
@@ -450,7 +434,7 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
                   </div>
                 </div>
               )}
-              
+
               <motion.div
                 className={`p-3 rounded-lg border cursor-pointer ${
                   isSelected
@@ -468,10 +452,10 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
                     <div
                       className="relative w-14 h-16 rounded overflow-hidden shadow-sm"
                       style={{
-                        background: isLayout 
+                        background: isLayout
                           ? colors.secondary
                           : `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
-                        border: template.id === 'minimal' 
+                        border: template.id === 'minimal'
                           ? `1px solid ${colors.primary}`
                           : 'none'
                       }}
@@ -481,44 +465,30 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex-grow">
                     <div className="flex flex-wrap items-baseline gap-2">
-                      <h4 className="font-bold text-sm">
-                        {template.name}
-                      </h4>
-                      <span 
-                        className={`text-xs px-1.5 py-0.5 rounded ${
-                          template.type === 'theme' 
-                            ? 'bg-indigo-100 text-indigo-800' 
-                            : 'bg-purple-100 text-purple-800'
-                        }`}
-                      >
+                      <h4 className="font-bold text-sm">{template.name}</h4>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        template.type === 'theme'
+                          ? 'bg-indigo-100 text-indigo-800'
+                          : 'bg-purple-100 text-purple-800'
+                      }`}>
                         {template.type === 'theme' ? 'Theme' : 'Layout'}
                       </span>
                     </div>
-                    
+
                     <p className="text-xs text-gray-600 mt-1">
                       {template.description}
                     </p>
-                    
+
                     <div className="mt-2 flex items-center">
                       <span className="text-xs text-gray-500 mr-1">Colors:</span>
                       <div className="flex space-x-1">
-                        <div 
-                          className="w-4 h-4 rounded-full border border-gray-200" 
+                        <div
+                          className="w-4 h-4 rounded-full border border-gray-200"
                           style={{ backgroundColor: colors.primary }}
                         ></div>
-                        <div 
-                          className="w-4 h-4 rounded-full border border-gray-200" 
-                          style={{ backgroundColor: colors.secondary }}
-                        ></div>
-                        {colors.accent && (
-                          <div 
-                            className="w-4 h-4 rounded-full border border-gray-200" 
-                            style={{ backgroundColor: colors.accent }}
-                          ></div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -527,57 +497,85 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
             </div>
           );
         })}
-      </div>
-
-      {/* Watermark payment section */}
-      {selectedTemplate && (
-        <motion.div 
-          className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h4 className="font-medium text-base text-gray-800">
-                {unlockedTemplates.includes(selectedTemplate) 
-                  ? "Watermark Removed" 
-                  : "Remove Watermark"}
-              </h4>
-              <p className="text-sm text-gray-600 mt-1">
-                {unlockedTemplates.includes(selectedTemplate) 
-                  ? "Your resume will export without watermark"
-                  : "Pay ₹50 to remove watermark from exports"}
-              </p>
-            </div>
-            
-            {unlockedTemplates.includes(selectedTemplate) ? (
-              <span className="text-green-600 font-medium flex items-center">
-                <i className="fas fa-check-circle mr-2"></i>
-                Watermark Removed
-              </span>
-            ) : (
-              <button
-                className={`py-2 px-5 rounded-md text-white font-medium text-sm flex items-center justify-center ${
-                  paymentProcessing ? 'bg-gray-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
-                onClick={handlePayment}
-                disabled={paymentProcessing || !isRazorpayLoaded}
-              >
-                {paymentProcessing ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin mr-2"></i> Processing...
-                  </>
-                ) : (
-                  "Pay ₹50 to Remove Watermark"
-                )}
-              </button>
-            )}
-          </div>
-        </motion.div>
-      )}
     </div>
-  );
+
+    {/* Watermark Payment Section */}
+    {selectedTemplate && (
+      <motion.div
+        className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h4 className="font-medium text-base text-gray-800">
+              {unlockedTemplates.includes(selectedTemplate)
+                ? "Watermark Removed"
+                : "Remove Watermark"}
+            </h4>
+            <p className="text-sm text-gray-600 mt-1">
+              {unlockedTemplates.includes(selectedTemplate)
+                ? "Your resume will export without watermark"
+                : "Pay ₹50 to remove watermark from exports"}
+            </p>
+          </div>
+
+          {unlockedTemplates.includes(selectedTemplate) ? (
+            <span className="text-green-600 font-medium flex items-center">
+              <i className="fas fa-check-circle mr-2"></i>
+              Watermark Removed
+            </span>
+          ) : (
+            <button
+              className={`py-2 px-5 rounded-md text-white font-medium text-sm flex items-center justify-center ${
+                paymentProcessing ? 'bg-gray-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+              onClick={handlePayment}
+              disabled={paymentProcessing || !isRazorpayLoaded}
+            >
+              {paymentProcessing ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i> Processing...
+                </>
+              ) : (
+                "Pay ₹50 to Remove Watermark"
+              )}
+            </button>
+          )}
+        </div>
+      </motion.div>
+    )}
+
+    {/* Payment Success Popup */}
+    {showSuccessPopup && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg p-6 shadow-xl w-[90%] max-w-sm text-center">
+          <h2 className="text-xl font-semibold text-green-600 mb-2">
+            🎉 Payment Successful!
+          </h2>
+          <p className="text-sm text-gray-700 mb-4">
+            Your template has been unlocked. Please refresh the page to apply the changes.
+          </p>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+            >
+              Refresh Now
+            </button>
+            <button
+              onClick={() => setShowSuccessPopup(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm"
+            >
+              Later
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+);
 };
 
 // Layout selector for resume rendering
