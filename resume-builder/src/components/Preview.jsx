@@ -830,54 +830,100 @@ const renderEcoGreenLayout = () => (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left */}
         <div className="lg:col-span-1 space-y-8">
-          {/* Contact */}
-          <div className="bg-gray-800 rounded-xl p-6 shadow-lg border-l-4" style={{ borderColor: colors.primary }}>
-            <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: colors.primary }}>
-              <span className="p-2 rounded-md mr-3" style={{ background: colors.primary, color: '#fff' }}>
-                {icons.email}
-              </span>
-              CONTACT
-            </h2>
-            <div className="space-y-3 break-words">
-              {/* Phone */}
-              {resumeData?.personal?.phone && (
-                <div className="flex items-center">
-                  <span className="mr-3" style={{ color: colors.primary }}>{icons.phone}</span>
-                  <span className="text-white text-sm">{typeof resumeData.personal.phone === 'object' ? resumeData.personal.phone.name : resumeData.personal.phone}</span>
-                </div>
-              )}
-              {/* Email */}
-              {resumeData?.personal?.email && (
-                <div className="flex items-center">
-                  <span className="mr-3" style={{ color: colors.primary }}>{icons.email}</span>
-                  <a href={`mailto:${typeof resumeData.personal.email === 'object' ? resumeData.personal.email.name : resumeData.personal.email}`} className="text-white hover:underline text-sm break-all">
-                    {typeof resumeData.personal.email === 'object' ? resumeData.personal.email.name : resumeData.personal.email}
-                  </a>
-                </div>
-              )}
-              {/* Website */}
-              {resumeData?.personal?.website && (
-                <div className="flex items-center">
-                  <span className="mr-3" style={{ color: colors.primary }}>{icons.website}</span>
-                  <a
-                    href={(typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website).startsWith('http') ? (typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website) : `https://${typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white hover:underline text-sm break-all"
-                  >
-                    {typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website}
-                  </a>
-                </div>
-              )}
-              {/* Location */}
-              {resumeData?.personal?.location && (
-                <div className="flex items-center">
-                  <span className="mr-3" style={{ color: colors.primary }}>{icons.location}</span>
-                  <span className="text-white text-sm">{typeof resumeData.personal.location === 'object' ? resumeData.personal.location.name : resumeData.personal.location}</span>
-                </div>
-              )}
-            </div>
-          </div>
+         {/* Contact */}
+<div className="bg-gray-800 rounded-xl p-6 shadow-lg border-l-4" style={{ borderColor: colors.primary }}>
+  <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: colors.primary }}>
+    <span className="p-2 rounded-md mr-3" style={{ background: colors.primary, color: '#fff' }}>
+      {icons.email}
+    </span>
+    CONTACT
+  </h2>
+  <div className="space-y-3 break-words">
+    {/* Phone */}
+    {resumeData?.personal?.phone && (
+      <div className="flex items-center">
+        <span className="mr-3" style={{ color: colors.primary }}>{icons.phone}</span>
+        <span className="text-white text-sm">
+          {typeof resumeData.personal.phone === 'object' ? resumeData.personal.phone.name : resumeData.personal.phone}
+        </span>
+      </div>
+    )}
+
+    {/* Email */}
+    {resumeData?.personal?.email && (
+      <div className="flex items-center">
+        <span className="mr-3" style={{ color: colors.primary }}>{icons.email}</span>
+        <a
+          href={`mailto:${typeof resumeData.personal.email === 'object' ? resumeData.personal.email.name : resumeData.personal.email}`}
+          className="text-white hover:underline text-sm break-all"
+        >
+          {typeof resumeData.personal.email === 'object' ? resumeData.personal.email.name : resumeData.personal.email}
+        </a>
+      </div>
+    )}
+
+    {/* Website */}
+    {resumeData?.personal?.website && (
+      <div className="flex items-center">
+        <span className="mr-3" style={{ color: colors.primary }}>{icons.website}</span>
+        <a
+          href={(typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website).startsWith('http') 
+            ? (typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website)
+            : `https://${typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white hover:underline text-sm break-all"
+        >
+          {typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website}
+        </a>
+      </div>
+    )}
+
+    {/* LinkedIn */}
+    {resumeData?.personal?.linkedin && (
+      <div className="flex items-center">
+        <span className="mr-3" style={{ color: colors.primary }}>{icons.linkedin}</span>
+        <a
+          href={(typeof resumeData.personal.linkedin === 'object' ? resumeData.personal.linkedin.name : resumeData.personal.linkedin).startsWith('http')
+            ? (typeof resumeData.personal.linkedin === 'object' ? resumeData.personal.linkedin.name : resumeData.personal.linkedin)
+            : `https://www.linkedin.com/in/${typeof resumeData.personal.linkedin === 'object' ? resumeData.personal.linkedin.name : resumeData.personal.linkedin}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white hover:underline text-sm break-all"
+        >
+          {typeof resumeData.personal.linkedin === 'object' ? resumeData.personal.linkedin.name : resumeData.personal.linkedin}
+        </a>
+      </div>
+    )}
+
+    {/* GitHub */}
+    {resumeData?.personal?.github && (
+      <div className="flex items-center">
+        <span className="mr-3" style={{ color: colors.primary }}>{icons.github}</span>
+        <a
+          href={(typeof resumeData.personal.github === 'object' ? resumeData.personal.github.name : resumeData.personal.github).startsWith('http')
+            ? (typeof resumeData.personal.github === 'object' ? resumeData.personal.github.name : resumeData.personal.github)
+            : `https://github.com/${typeof resumeData.personal.github === 'object' ? resumeData.personal.github.name : resumeData.personal.github}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white hover:underline text-sm break-all"
+        >
+          {typeof resumeData.personal.github === 'object' ? resumeData.personal.github.name : resumeData.personal.github}
+        </a>
+      </div>
+    )}
+
+    {/* Location */}
+    {resumeData?.personal?.location && (
+      <div className="flex items-center">
+        <span className="mr-3" style={{ color: colors.primary }}>{icons.location}</span>
+        <span className="text-white text-sm">
+          {typeof resumeData.personal.location === 'object' ? resumeData.personal.location.name : resumeData.personal.location}
+        </span>
+      </div>
+    )}
+  </div>
+</div>
 
           {renderSkillsSection()}
           {renderHobbiesSection()}
@@ -998,7 +1044,7 @@ const renderEcoGreenLayout = () => (
 );
 
 
- const renderBoldRedLayout = () => (
+const renderBoldRedLayout = () => (
   <div className="resume-content flex flex-col items-center min-h-[297mm] relative">
     <Watermark
       templateId={resumeData?.template}
@@ -1155,14 +1201,36 @@ const renderEcoGreenLayout = () => (
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
     >
-      <div className="flex justify-center space-x-4 text-sm">
-        {resumeData?.personal?.email && <span className="break-words">{resumeData.personal.email}</span>}
-        {resumeData?.personal?.phone && <span>{resumeData.personal.phone}</span>}
-        {resumeData?.personal?.location && <span>{resumeData.personal.location}</span>}
+      <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm">
+        {resumeData?.personal?.email && (
+          <span className="flex items-center gap-1">{icons.email}{resumeData.personal.email}</span>
+        )}
+        {resumeData?.personal?.phone && (
+          <span className="flex items-center gap-1">{icons.phone}{resumeData.personal.phone}</span>
+        )}
+        {resumeData?.personal?.location && (
+          <span className="flex items-center gap-1">{icons.location}{resumeData.personal.location}</span>
+        )}
+        {resumeData?.personal?.linkedin && (
+          <a href={resumeData.personal.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
+            {icons.linkedin} LinkedIn
+          </a>
+        )}
+        {resumeData?.personal?.github && (
+          <a href={resumeData.personal.github} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
+            {icons.github} GitHub
+          </a>
+        )}
+        {resumeData?.personal?.website && (
+          <a href={resumeData.personal.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
+            {icons.website} Website
+          </a>
+        )}
       </div>
     </motion.div>
   </div>
 );
+
 
 
  const renderProfessionalTealLayout = () => (
@@ -1313,12 +1381,13 @@ const renderEcoGreenLayout = () => (
 
 
  const renderMinimalistLayout = () => (
-  <div className="resume-content p-8 min-h-[297mm] bg-white relative">
+  <div className="resume-content p-8 min-h-[297mm] bg-white max-w-[210mm] mx-auto relative text-sm">
     <Watermark
       templateId={resumeData?.template}
       unlockedTemplates={unlockedTemplates}
     />
 
+    {/* Header with Name and Title */}
     <motion.div
       className="text-center mb-8"
       initial={{ opacity: 0, y: -20 }}
@@ -1331,21 +1400,64 @@ const renderEcoGreenLayout = () => (
       <p className="text-xl text-gray-600">
         {resumeData?.personal?.title || 'Professional Title'}
       </p>
-      <div className="flex flex-wrap justify-center gap-4 mt-3 text-sm text-gray-500">
-        {resumeData?.personal?.email && <span>{icons.email} {resumeData.personal.email}</span>}
-        {resumeData?.personal?.phone && <span>{icons.phone} {resumeData.personal.phone}</span>}
-        {resumeData?.personal?.location && <span>{icons.location} {resumeData.personal.location}</span>}
+
+      {/* Contact Info */}
+      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-3 text-sm text-gray-500">
+        {resumeData?.personal?.email && (
+          <span className="flex items-center gap-1">
+            {icons.email} {resumeData.personal.email}
+          </span>
+        )}
+        {resumeData?.personal?.phone && (
+          <span className="flex items-center gap-1">
+            {icons.phone} {resumeData.personal.phone}
+          </span>
+        )}
+        {resumeData?.personal?.location && (
+          <span className="flex items-center gap-1">
+            {icons.location} {resumeData.personal.location}
+          </span>
+        )}
+        {resumeData?.personal?.linkedin && (
+          <a
+            href={resumeData.personal.linkedin}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:underline"
+          >
+            {icons.linkedin} LinkedIn
+          </a>
+        )}
+        {resumeData?.personal?.github && (
+          <a
+            href={resumeData.personal.github}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:underline"
+          >
+            {icons.github} GitHub
+          </a>
+        )}
+        {resumeData?.personal?.website && (
+          <a
+            href={resumeData.personal.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:underline"
+          >
+            {icons.website} Website
+          </a>
+        )}
       </div>
     </motion.div>
 
-    <div className="space-y-8 text-sm">
+    {/* Body Sections */}
+    <div className="space-y-8">
       {/* Summary */}
       {resumeData?.personal?.summary && (
-        <div className="mb-6">
+        <div>
           <h2 className="font-bold text-lg mb-3 border-b pb-2">Summary</h2>
-          <p className="text-gray-700">
-            {resumeData.personal.summary}
-          </p>
+          <p className="text-gray-700">{resumeData.personal.summary}</p>
         </div>
       )}
 
@@ -1367,9 +1479,7 @@ const renderEcoGreenLayout = () => (
                   </div>
                   <span className="text-gray-600">{exp.duration || 'Duration'}</span>
                 </div>
-                <p className="text-gray-600 mt-2">
-                  {exp.responsibilities || 'Responsibilities and achievements...'}
-                </p>
+                <p className="text-gray-600 mt-2">{exp.responsibilities}</p>
                 {exp.technologies && (
                   <div className="mt-2">
                     <span className="font-medium">Technologies: </span>
@@ -1393,14 +1503,15 @@ const renderEcoGreenLayout = () => (
                   <h3 className="font-bold">{edu.degree || 'Degree'}</h3>
                   <span className="text-gray-600">{edu.duration || 'Year'}</span>
                 </div>
-                <div className="font-semibold text-gray-700">
-                  {edu.institution || 'Institution'}
-                </div>
+                <div className="font-semibold text-gray-700">{edu.institution}</div>
                 <p className="text-gray-600">
-                  {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
+                  {edu.field || 'Field of Study'}
+                  {edu.cgpa && ` | CGPA: ${edu.cgpa}`}
                 </p>
                 {edu.school && <p className="text-gray-600">School: {edu.school}</p>}
-                {edu.achievements && <p className="text-gray-600 mt-1">Achievements: {edu.achievements}</p>}
+                {edu.achievements && (
+                  <p className="text-gray-600 mt-1">Achievements: {edu.achievements}</p>
+                )}
               </div>
             ))}
           </div>
@@ -1440,9 +1551,7 @@ const renderEcoGreenLayout = () => (
                     )}
                   </div>
                 </div>
-                <p className="text-gray-600 text-sm mt-1">
-                  {project.description || 'Project description...'}
-                </p>
+                <p className="text-gray-600 text-sm mt-1">{project.description}</p>
                 {project.technologies && (
                   <div className="mt-2">
                     <span className="font-medium text-sm">Technologies: </span>
@@ -1463,21 +1572,25 @@ const renderEcoGreenLayout = () => (
             {resumeData.certifications.map((cert, index) => (
               <div key={index}>
                 <div className="font-bold">{cert.name}</div>
-                <div className="text-gray-600 text-sm">{cert.issuer} | {cert.date}</div>
+                <div className="text-gray-600 text-sm">
+                  {cert.issuer} | {cert.date}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Skills & Hobbies */}
       {renderSkillsSection()}
       {renderHobbiesSection()}
     </div>
   </div>
 );
 
-  const renderClassicLayout = () => (
-  <div className="resume-content p-8 min-h-[297mm] bg-white relative">
+
+const renderClassicLayout = () => (
+  <div className="resume-content p-8 min-h-[297mm] bg-white relative text-sm">
     <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
 
     {/* Header */}
@@ -1493,15 +1606,62 @@ const renderEcoGreenLayout = () => (
       <p className="text-xl text-gray-600">
         {resumeData?.personal?.title || 'Professional Title'}
       </p>
-      <div className="flex flex-wrap justify-center gap-4 mt-3 text-sm text-gray-500">
-        {resumeData?.personal?.email && <span>{icons.email} {resumeData.personal.email}</span>}
-        {resumeData?.personal?.phone && <span>{icons.phone} {resumeData.personal.phone}</span>}
-        {resumeData?.personal?.location && <span>{icons.location} {resumeData.personal.location}</span>}
-        {resumeData?.personal?.linkedin && <span>{icons.linkedin} {resumeData.personal.linkedin}</span>}
-        {resumeData?.personal?.portfolio && <span>{icons.portfolio} {resumeData.personal.portfolio}</span>}
+
+      {/* Contact Info */}
+      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-3 text-sm text-gray-500">
+        {resumeData?.personal?.email && (
+          <span className="flex items-center gap-1">{icons.email}{resumeData.personal.email}</span>
+        )}
+        {resumeData?.personal?.phone && (
+          <span className="flex items-center gap-1">{icons.phone}{resumeData.personal.phone}</span>
+        )}
+        {resumeData?.personal?.location && (
+          <span className="flex items-center gap-1">{icons.location}{resumeData.personal.location}</span>
+        )}
+        {resumeData?.personal?.linkedin && (
+          <a
+            href={resumeData.personal.linkedin}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:underline"
+          >
+            {icons.linkedin} LinkedIn
+          </a>
+        )}
+        {resumeData?.personal?.github && (
+          <a
+            href={resumeData.personal.github}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:underline"
+          >
+            {icons.github} GitHub
+          </a>
+        )}
+        {resumeData?.personal?.portfolio && (
+          <a
+            href={resumeData.personal.portfolio}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:underline"
+          >
+            {icons.portfolio} Portfolio
+          </a>
+        )}
+        {resumeData?.personal?.website && (
+          <a
+            href={resumeData.personal.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:underline"
+          >
+            {icons.website} Website
+          </a>
+        )}
       </div>
     </motion.div>
 
+    {/* Body Sections */}
     <div className="space-y-8">
       {/* Summary */}
       {resumeData?.personal?.summary && (
@@ -1556,18 +1716,10 @@ const renderEcoGreenLayout = () => (
                 <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
                   {edu.institution || 'Institution'}
                 </div>
-                {edu.field && (
-                  <p className="text-gray-700 text-sm">{edu.field}</p>
-                )}
-                {edu.cgpa && (
-                  <p className="text-gray-700 text-sm">CGPA: {edu.cgpa}</p>
-                )}
-                {edu.school && (
-                  <p className="text-gray-700 text-sm">School: {edu.school}</p>
-                )}
-                {edu.achievements && (
-                  <p className="text-gray-700 text-sm mt-1">Achievements: {edu.achievements}</p>
-                )}
+                {edu.field && <p className="text-gray-700 text-sm">{edu.field}</p>}
+                {edu.cgpa && <p className="text-gray-700 text-sm">CGPA: {edu.cgpa}</p>}
+                {edu.school && <p className="text-gray-700 text-sm">School: {edu.school}</p>}
+                {edu.achievements && <p className="text-gray-700 text-sm mt-1">Achievements: {edu.achievements}</p>}
               </div>
             ))}
           </div>
@@ -1580,13 +1732,13 @@ const renderEcoGreenLayout = () => (
         resumeData?.frameworks?.length > 0 ||
         resumeData?.languages?.length > 0 ||
         resumeData?.certifications?.length > 0) && (
-          <div>
-            <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Skills</h2>
-            <div className="pl-4 border-l-2" style={{ borderColor: colors.primary }}>
-              {renderSkillsSection()}
-            </div>
+        <div>
+          <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Skills</h2>
+          <div className="pl-4 border-l-2" style={{ borderColor: colors.primary }}>
+            {renderSkillsSection()}
           </div>
-        )}
+        </div>
+      )}
 
       {/* Projects */}
       {resumeData?.projects?.length > 0 && (
@@ -1601,7 +1753,9 @@ const renderEcoGreenLayout = () => (
                       <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         {project.title}
                       </a>
-                    ) : project.title || 'Project Name'}
+                    ) : (
+                      project.title || 'Project Name'
+                    )}
                   </h3>
                   <div>
                     {project.duration && <span className="text-gray-600 text-sm mr-3">{project.duration}</span>}
@@ -1630,6 +1784,7 @@ const renderEcoGreenLayout = () => (
     </div>
   </div>
 );
+
 
 
   const renderSidebarLayout = () => (
