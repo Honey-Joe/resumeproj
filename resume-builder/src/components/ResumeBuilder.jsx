@@ -237,25 +237,6 @@ const ResumeBuilder = () => {
                 )}
               </button>
 
-              <button
-                onClick={handleGeneratePDF}
-                disabled={isGeneratingPDF}
-                className={`px-6 py-2.5 rounded-xl font-semibold shadow-sm text-white transition-colors ${
-                  isGeneratingPDF ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
-                }`}
-              >
-                {isGeneratingPDF ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-file-pdf mr-2"></i>
-                    Download PDF
-                  </>
-                )}
-              </button>
             </div>
 
             <AnimatePresence>

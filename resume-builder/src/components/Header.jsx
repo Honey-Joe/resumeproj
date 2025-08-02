@@ -49,8 +49,6 @@ const Header = ({ onExport }) => {
     sessionStorage.removeItem('user');
     localStorage.removeItem('userToken');
     localStorage.removeItem('adminToken');
-    localStorage.removeItem("userName");+
-    localStorage.removeItem("userEmail");
     setIsAuthenticated(false);
     setUser(null);
     closeMobileMenu();
@@ -113,7 +111,7 @@ const Header = ({ onExport }) => {
             whileHover={{ rotate: 360, scale: 1.1, transition: { duration: 0.6 } }}
           >
             <img
-              src="/resume logo.jpg"
+              src="https://ik.imagekit.io/HoneyJoe/freewill%20technologies%20assetss/logo.jpg?updatedAt=1745004056813"
               alt="FWT Logo"
               className="w-full h-full object-contain bg-white p-1"
             />

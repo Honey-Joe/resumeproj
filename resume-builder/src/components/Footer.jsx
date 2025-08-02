@@ -15,7 +15,7 @@ const Footer = () => {
             >
               <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500 mr-3">
                 <img 
-                  src="/logo1.JPG" 
+                  src="https://ik.imagekit.io/HoneyJoe/freewill%20technologies%20assetss/logo.jpg?updatedAt=1745004056813"
                   alt="FWT Logo" 
                   className="w-full h-full object-contain bg-white p-1"
                 />

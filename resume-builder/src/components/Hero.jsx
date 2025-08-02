@@ -1,10 +1,32 @@
 // src/components/Hero.js
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const Hero = ({ onStartBuilding }) => {
+  const navigate = useNavigate();
+  const [loginMessage, setLoginMessage] = useState('');
+
+  const handleBuildClick = () => {
+    const isLoggedIn = !!localStorage.getItem('userToken');
+    if (isLoggedIn) {
+      onStartBuilding();
+    } else {
+      setLoginMessage('You must log in before building your resume');
+      setTimeout(() => setLoginMessage(''), 3000); // Hide after 3 seconds
+      navigate('/AuthPage');
+    }
+  };
+
+  const scrollToExamples = () => {
+  const section = document.getElementById('examples');
+  if (section) {
+    section.scrollIntoView({ behavior: 'smooth' });
+  }
+};
+
   return (
-    <section id="hero" className="relative py-16 md:py-28 overflow-hidden bg-gradient-to-br from-slate-900 to-blue-900">
+    <section id="hero" className="relative py-16 md:py-28 bg-gradient-to-br from-slate-900 to-blue-900">
       {/* Animated background elements */}
       <div className="absolute inset-0 z-0">
         {/* Floating grid pattern */}
@@ -64,17 +86,18 @@ const Hero = ({ onStartBuilding }) => {
             </motion.h1>
             
             <motion.p 
-              className="text-lg md:text-xl text-blue-100 mb-8 md:mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              Stand out with beautifully designed templates, real-time previews, and expert content guidance. Make your resume shine.
-            </motion.p>
+  className="text-lg md:text-xl text-blue-100 mb-8 md:mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
+  initial={{ opacity: 0, y: 30 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.8, delay: 0.2 }}
+>
+  Stand out with beautifully designed templates, real-time previews, and expert content guidance. Make your resume shine. <br />
+  <span className="text-orange-400 font-semibold">Must login before building your perfect resume.</span>
+</motion.p>
+
             
             <div className="flex flex-wrap justify-center lg:justify-start gap-3 md:gap-4">
-              <motion.button 
-                onClick={onStartBuilding}
+              <motion.button onClick={handleBuildClick}
                 className="px-6 py-3 md:px-8 md:py-4 rounded-xl text-base md:text-lg font-semibold text-white shadow-xl group relative overflow-hidden"
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -94,7 +117,7 @@ const Hero = ({ onStartBuilding }) => {
                 </div>
               </motion.button>
               
-              <motion.button 
+              <motion.button onClick={scrollToExamples}
                 className="px-6 py-3 md:px-8 md:py-4 rounded-xl text-base md:text-lg font-semibold bg-gradient-to-r from-orange-500/20 to-amber-500/20 backdrop-blur-sm border border-orange-400/30 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-amber-500/30 transition-all duration-300 shadow-xl"
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -337,16 +360,29 @@ const Hero = ({ onStartBuilding }) => {
 </div>
       
       {/* Floating scroll indicator */}
-      <motion.div 
-        className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center text-blue-300"
-        animate={{ y: [0, 10, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      >
-        <span className="text-sm mb-2">Scroll to explore</span>
-        <svg className="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-        </svg>
-      </motion.div>
+   <motion.div 
+  className="absolute bottom-6 left-[41%] sm:left-1/2 -translate-x-[45%] sm:-translate-x-1/2 flex flex-col items-center text-blue-300 z-20 pointer-events-none"
+  animate={{ y: [0, 6, 0] }}
+  transition={{ duration: 2, repeat: Infinity }}
+>
+  <span className="text-xs sm:text-sm mb-2 sm:mb-3">Scroll to explore</span>
+  <svg 
+    className="w-5 h-2 sm:w-4 sm:h-2 animate-bounce" 
+    fill="none" 
+    stroke="currentColor" 
+    viewBox="0 0 24 24" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      strokeWidth="2" 
+      d="M19 14l-7 7m0 0l-7-7m7 7V3"
+    />
+  </svg>
+</motion.div>
+
+
     </section>
   );
 };

@@ -1,7 +1,7 @@
 // src/components/Features.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FaMagic, FaPalette, FaCloudDownloadAlt } from 'react-icons/fa';
+import { FaRegClone, FaPalette, FaCloudDownloadAlt } from 'react-icons/fa';
 
 const FeatureCard = ({ IconComponent, title, description, delay, color }) => (
   <motion.div
@@ -35,21 +35,21 @@ const FeatureCard = ({ IconComponent, title, description, delay, color }) => (
 const Features = () => {
   const features = [
     {
-      IconComponent: FaMagic,
-      title: "Smart Content Suggestions",
-      description: "Get AI-powered recommendations for impactful phrasing and industry-specific keywords that make your resume stand out.",
-      color: "bg-gradient-to-br from-cyan-500 to-blue-600"
+      IconComponent: FaRegClone,
+      title: "Multi-Template Preview",
+      description: "Instantly preview your resume across different professional templates before choosing the final one.",
+      color: "bg-gradient-to-br from-sky-500 to-blue-700"
     },
     {
       IconComponent: FaPalette,
       title: "Professional Templates",
-      description: "Choose from 20+ ATS-friendly templates designed by hiring professionals to showcase your experience effectively.",
+      description: "Choose from 9+ ATS-friendly templates designed by hiring professionals to showcase your experience effectively.",
       color: "bg-gradient-to-br from-orange-500 to-amber-500"
     },
     {
       IconComponent: FaCloudDownloadAlt,
       title: "One-Click Export",
-      description: "Download as PDF or share online with a custom link. Perfect for email applications and online profiles.",
+      description: "Download as PDF with best Quality Perfect for email applications and online profiles.",
       color: "bg-gradient-to-br from-cyan-500 to-blue-600"
     }
   ];
