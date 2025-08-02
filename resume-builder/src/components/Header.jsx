@@ -9,22 +9,23 @@ const Header = ({ onExport }) => {
   const [user, setUser] = useState(null);
   const location = useLocation();
 
-  const closeMobileMenu = () => setMobileMenuOpen(false);
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+    setIsDropdownOpen(false);
+  };
 
-  // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
     }
-    
+
     return () => {
       document.body.style.overflow = 'auto';
     };
   }, [mobileMenuOpen]);
 
-  // Check both userToken and adminToken on route change
   useEffect(() => {
     const userToken = localStorage.getItem('userToken');
     const adminToken = localStorage.getItem('adminToken');
@@ -130,7 +131,7 @@ const Header = ({ onExport }) => {
           </motion.h1>
         </div>
 
-        {/* Mobile Menu Button (Burger Icon) */}
+        {/* Mobile */}
         <div className="md:hidden flex items-center">
           {isAuthenticated ? (
             <div className="flex items-center space-x-4">
@@ -142,8 +143,8 @@ const Header = ({ onExport }) => {
               >
                 <i className="fas fa-download"></i>
               </motion.button>
-              
-              <button 
+
+              <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="relative"
               >
@@ -160,7 +161,7 @@ const Header = ({ onExport }) => {
               </button>
             </div>
           ) : (
-            <button 
+            <button
               className="text-amber-400 text-2xl focus:outline-none"
               onClick={() => setMobileMenuOpen(true)}
             >
@@ -169,7 +170,7 @@ const Header = ({ onExport }) => {
           )}
         </div>
 
-        {/* Desktop Navigation */}
+        {/* Desktop */}
         {!isAuthenticated ? (
           <nav className="hidden md:flex items-center space-x-6">
             <div className="flex space-x-3">
@@ -217,12 +218,11 @@ const Header = ({ onExport }) => {
                 ],
                 transition: { duration: 0.5, repeat: Infinity, repeatType: 'reverse' },
               }}
-              whileTap={{ scale: 0.95, boxShadow: '0 0 15px rgba(251, 191, 36, 0.5)' }}
+              whileTap={{ scale: 0.95 }}
             >
               <i className="fas fa-download mr-2"></i> Export
             </motion.button>
 
-            {/* User Dropdown */}
             <div className="relative">
               <motion.button
                 className="flex items-center space-x-2"
@@ -260,7 +260,6 @@ const Header = ({ onExport }) => {
                 exit={{ opacity: 0 }}
                 onClick={closeMobileMenu}
               />
-              
               <motion.div
                 className="fixed top-0 right-0 h-full w-4/5 max-w-sm bg-gradient-to-b from-slate-800 to-blue-900 shadow-2xl z-50 md:hidden"
                 initial={{ x: '100%' }}
@@ -269,20 +268,14 @@ const Header = ({ onExport }) => {
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               >
                 <div className="flex justify-end p-4">
-                  <button
-                    className="text-amber-400 text-2xl focus:outline-none"
-                    onClick={closeMobileMenu}
-                  >
+                  <button className="text-amber-400 text-2xl focus:outline-none" onClick={closeMobileMenu}>
                     <i className="fas fa-times"></i>
                   </button>
                 </div>
-                
+
                 <div className="px-6 py-8">
                   <div className="flex flex-col space-y-6">
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                       <Link
                         to="/AuthPage"
                         className="block w-full text-center px-4 py-3 rounded-lg text-cyan-100 font-medium bg-blue-800/70"
@@ -291,11 +284,8 @@ const Header = ({ onExport }) => {
                         Login
                       </Link>
                     </motion.div>
-                    
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
+
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
                       <Link
                         to="/AuthPage"
                         className="block w-full text-center px-4 py-3 rounded-lg font-medium bg-gradient-to-r from-amber-500 to-amber-400 text-blue-950"
@@ -304,22 +294,14 @@ const Header = ({ onExport }) => {
                         Sign Up
                       </Link>
                     </motion.div>
-                    
+
                     <div className="pt-8 border-t border-blue-700">
                       <p className="text-center text-blue-300 mb-4">Get the app</p>
                       <div className="flex justify-center space-x-4">
-                        <motion.a 
-                          href="#" 
-                          className="bg-slate-700 p-2 rounded-lg"
-                          whileHover={{ y: -3 }}
-                        >
+                        <motion.a href="#" className="bg-slate-700 p-2 rounded-lg" whileHover={{ y: -3 }}>
                           <i className="fab fa-apple text-2xl text-white"></i>
                         </motion.a>
-                        <motion.a 
-                          href="#" 
-                          className="bg-slate-700 p-2 rounded-lg"
-                          whileHover={{ y: -3 }}
-                        >
+                        <motion.a href="#" className="bg-slate-700 p-2 rounded-lg" whileHover={{ y: -3 }}>
                           <i className="fab fa-android text-2xl text-green-400"></i>
                         </motion.a>
                       </div>

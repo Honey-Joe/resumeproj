@@ -107,10 +107,6 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
   if (!selectedTemplate) return;
 
   // 🔐 Require login
-  if (!userEmail || !userName) {
-    alert("You must log in or complete your profile before purchasing a template.");
-    return;
-  }
 
   setPaymentProcessing(true);
     try {
