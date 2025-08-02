@@ -13,7 +13,7 @@ const ProjectsStep = ({ resumeData, updateResumeData }) => {
     updateResumeData({
       projects: [
         ...resumeData.projects,
-        { title: '', duration: '', technologies: '', description: '', link: '' }
+        { title: '', duration: '', technologies: '', description: '' }
       ]
     });
   };
@@ -134,17 +134,6 @@ const ProjectsStep = ({ resumeData, updateResumeData }) => {
                     placeholder="• Developed X feature using Y technology\n• Optimized performance by 40%"
                     required
                   ></textarea>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Link</label>
-                  <input
-                    type="url"
-                    value={project.link}
-                    onChange={(e) => handleChange(index, 'link', e.target.value)}
-                    className="w-full text-sm p-2 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-indigo-300"
-                    placeholder="https://github.com/user/project"
-                  />
                 </div>
               </div>
             </motion.div>
