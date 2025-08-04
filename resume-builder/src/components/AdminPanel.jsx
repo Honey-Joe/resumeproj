@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
+import VisitCounter from './VisitCounter';
 
 const AdminPanel = () => {
   const [users, setUsers] = useState([]);
@@ -158,6 +159,9 @@ const AdminPanel = () => {
             <h2 className="text-2xl font-bold text-white">User Management</h2>
             <p className="text-blue-200">View and manage all registered users</p>
           </div>
+          <div>
+            <VisitCounter></VisitCounter>
+          </div>
 
           {/* Filters */}
           <div className="p-6 space-y-4">
@@ -192,6 +196,8 @@ const AdminPanel = () => {
               ))}
             </div>
 
+
+
             {/* User table */}
             <div className="overflow-x-auto mt-4">
               <table className="w-full text-white">
@@ -201,9 +207,7 @@ const AdminPanel = () => {
                     <th className="py-3 px-4 text-left">Name</th>
                     <th className="py-3 px-4 text-left">Email</th>
                     <th className="py-3 px-4 text-left">Age</th>
-                    <th className="py-3 px-4 text-left">Role</th>
                     <th className="py-3 px-4 text-left">Joined</th>
-                    <th className="py-3 px-4 text-left">Last Login</th>
                     <th className="py-3 px-4 text-left">Actions</th>
                   </tr>
                 </thead>
@@ -220,16 +224,9 @@ const AdminPanel = () => {
                       <td className="py-3 px-4 border-b border-blue-700">{user.name}</td>
                       <td className="py-3 px-4 border-b border-blue-700">{user.email}</td>
                       <td className="py-3 px-4 border-b border-blue-700">{user.age}</td>
-                      <td className="py-3 px-4 border-b border-blue-700 capitalize">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          user.role === 'student' ? 'bg-blue-600' :
-                          user.role === 'employee' ? 'bg-green-600' : 'bg-orange-600'
-                        }`}>{user.role}</span>
-                      </td>
+                      
                       <td className="py-3 px-4 border-b border-blue-700">{new Date(user.createdAt).toLocaleDateString()}</td>
-                      <td className="py-3 px-4 border-b border-blue-700">
-                        {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}
-                      </td>
+                     
                       <td className="py-3 px-4 border-b border-blue-700">
                         <button onClick={() => handleDelete(user.id)} className="text-red-400 hover:text-red-600">
                           <i className="fas fa-trash-alt"></i>
