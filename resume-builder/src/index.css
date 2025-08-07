@@ -46,6 +46,7 @@
   padding-bottom: 0.25rem; /* Reduced padding */
   line-height: 1.3;
   color: #1e293b;
+  @apply avoid-break;
 }
 
 .resume-container h3 {
@@ -59,6 +60,12 @@
 /* === Section Margins === */
 .resume-section {
   margin-bottom: 1rem; /* Reduced margin */
+   @apply avoid-break;
+}
+
+.avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
 }
 
 /* === Contact Info === */
@@ -116,6 +123,7 @@
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Smaller min-width */
   gap: 0.8rem; /* Reduced gap */
   margin-bottom: 1rem; /* Reduced margin */
+  @apply avoid-break;
 }
 
 .skill-category {
@@ -171,6 +179,7 @@
   margin-bottom: 1rem; /* Reduced margin */
   page-break-inside: avoid;
   position: relative; /* For date positioning */
+  @apply avoid-break;
 }
 
 .job-title {
@@ -222,6 +231,7 @@
     background: #ffffff !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+     @apply avoid-break;
   }
 
   .resume-container {
@@ -231,11 +241,13 @@
     margin: 0 auto !important;
     box-shadow: none !important;
     gap: 0.8rem !important; /* Reduced gap */
+     @apply avoid-break;
   }
 
   .resume-section {
     page-break-inside: avoid;
     margin-bottom: 0.8rem !important; /* Reduced margin */
+     @apply avoid-break;
   }
 
   .contact-info {

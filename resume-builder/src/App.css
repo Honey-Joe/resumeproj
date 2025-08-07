@@ -184,6 +184,62 @@ body {
   border: 1px solid #c7d2fe;
 }
 
+/* ===== STEPWIZARD ===== */
+.stepwizard {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+.stepwizard-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 9.5pt;
+  font-weight: 500;
+  position: relative;
+}
+
+.stepwizard-step .circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: white;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  margin-bottom: 4px;
+  border: 2px solid #e0e7ff;
+}
+
+.stepwizard-step.active .circle {
+  background: #6366f1;
+  color: white;
+  border: 2px solid white;
+}
+
+.stepwizard-step::after {
+  content: '';
+  position: absolute;
+  top: 13px;
+  left: 100%;
+  height: 2px;
+  width: 30px;
+  background: white;
+}
+
+.stepwizard-step:last-child::after {
+  display: none;
+}
+
 /* ===== HOBBIES ===== */
 .hobbies {
   display: flex;
@@ -260,7 +316,6 @@ body {
   .resume-container {
     padding: 10mm;
     width: 100%;
-    min-height: auto;
     box-shadow: none;
   }
   

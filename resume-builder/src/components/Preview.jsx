@@ -146,60 +146,137 @@ const Preview = forwardRef(({ resumeData, onRefresh, onPdfStart, onPdfComplete, 
     return () => window.removeEventListener('resize', calculatePageHeight);
   }, [resumeData]);
 
-  const handleDownload = async () => {
-    if (onPdfStart) onPdfStart();
-    setIsGeneratingPDF(true);
+const handleDownload = async () => {
+  if (onPdfStart) onPdfStart();
+  setIsGeneratingPDF(true);
 
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const name = resumeData?.personal?.name?.replace(/\s+/g, '_') || 'resume';
-      
-      // Capture each page separately
-      for (let page = 1; page <= totalPages; page++) {
-        if (page > 1) pdf.addPage();
-        
-        // Create a container for just this page
-        const pageContainer = document.createElement('div');
-        pageContainer.className = 'resume-page';
-        pageContainer.style.width = `${A4_WIDTH_PX}px`;
-        pageContainer.style.height = `${A4_HEIGHT_PX}px`;
-        pageContainer.style.position = 'relative';
-        pageContainer.style.overflow = 'hidden';
-        pageContainer.style.backgroundColor = 'white';
-        
-        // Clone the resume content
-        const contentClone = resumeContainerRef.current.cloneNode(true);
-        contentClone.style.position = 'absolute';
-        contentClone.style.top = `-${(page - 1) * A4_HEIGHT_PX}px`;
-        contentClone.style.left = '0';
-        
-        pageContainer.appendChild(contentClone);
-        document.body.appendChild(pageContainer);
-        
-        // Capture this page as PNG
-        const dataUrl = await toPng(pageContainer, {
-          quality: 1,
-          pixelRatio: 2,
-          backgroundColor: 'white'
-        });
-        
-        // Add to PDF
-        pdf.addImage(dataUrl, 'PNG', 0, 0, 210, 297);
-        
-        // Clean up
-        document.body.removeChild(pageContainer);
+  // Constants for A4 dimensions and pixel conversion
+  const A4_WIDTH_MM = 210;
+  const A4_HEIGHT_MM = 297;
+  const PX_PER_MM = 96 / 25.4; // 96dpi conversion
+  const A4_WIDTH_PX = A4_WIDTH_MM * PX_PER_MM;
+  const A4_HEIGHT_PX = A4_HEIGHT_MM * PX_PER_MM;
+
+  try {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const name = resumeData?.personal?.name?.replace(/\s+/g, '_') || 'resume';
+
+    const resumeElement = resumeContainerRef.current;
+    const clone = resumeElement.cloneNode(true);
+
+    // Create temporary container with proper styling
+    const tempContainer = document.createElement('div');
+    Object.assign(tempContainer.style, {
+      position: 'absolute',
+      left: '-9999px',
+      width: `${A4_WIDTH_PX}px`,
+      backgroundColor: 'white',
+      overflow: 'hidden',
+      boxSizing: 'border-box',
+      padding: '0',
+      margin: '0',
+      fontSize: '12pt',
+      fontFamily: 'Arial, sans-serif'
+    });
+
+    // Create print-specific styles
+    const printStyles = document.createElement('style');
+    printStyles.textContent = `
+      * {
+        word-break: keep-all !important;
+        overflow-wrap: break-word !important;
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
       }
+      .page-break-avoid {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    `;
 
-      pdf.save(`${name}_resume.pdf`);
-      setIsGeneratingPDF(false);
-      if (onPdfComplete) onPdfComplete(true, 'PDF generated successfully!');
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      setIsGeneratingPDF(false);
-      if (onPdfComplete)
-        onPdfComplete(false, `PDF generation failed: ${err.message || 'Unknown error'}`);
+    tempContainer.appendChild(printStyles);
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
+    // Calculate page breaks
+    const pageElements = [];
+    let currentPageHeight = 0;
+    let currentPageElements = [];
+    const nonBreakingElements = clone.querySelectorAll('.page-break-avoid');
+
+    const processElement = (el) => {
+      const elHeight = el.offsetHeight;
+      const isNonBreaking = [...nonBreakingElements].includes(el);
+      
+      // Check if element fits or needs to break
+      if (currentPageHeight + elHeight <= A4_HEIGHT_PX || currentPageHeight === 0) {
+        currentPageHeight += elHeight;
+        currentPageElements.push(el);
+      } else {
+        // Finish current page
+        pageElements.push([...currentPageElements]);
+        
+        // Start new page
+        currentPageElements = [el];
+        currentPageHeight = elHeight;
+      }
+    };
+
+    // Process all child elements
+    Array.from(clone.children).forEach(processElement);
+    
+    // Push remaining elements
+    if (currentPageElements.length > 0) {
+      pageElements.push(currentPageElements);
     }
-  };
+
+    // Generate PDF pages
+    for (let i = 0; i < pageElements.length; i++) {
+      if (i > 0) pdf.addPage();
+      
+      const pageDiv = document.createElement('div');
+      pageDiv.style.width = `${A4_WIDTH_PX}px`;
+      pageDiv.style.height = `${A4_HEIGHT_PX}px`;
+      pageDiv.style.overflow = 'hidden';
+      
+      pageElements[i].forEach(el => pageDiv.appendChild(el.cloneNode(true)));
+      tempContainer.innerHTML = '';
+      tempContainer.appendChild(pageDiv);
+
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const canvas = await toPng(pageDiv, {
+        pixelRatio: 3,
+        quality: 1,
+        backgroundColor: 'white',
+        width: A4_WIDTH_PX,
+        height: A4_HEIGHT_PX,
+        cacheBust: true
+      });
+
+      pdf.addImage(
+        canvas, 
+        'PNG', 
+        0, 
+        0, 
+        A4_WIDTH_MM, 
+        A4_HEIGHT_MM,
+        undefined,
+        'FAST'
+      );
+    }
+
+    // Cleanup
+    document.body.removeChild(tempContainer);
+    pdf.save(`${name}_resume.pdf`);
+    setIsGeneratingPDF(false);
+    onPdfComplete?.(true, 'PDF generated successfully!');
+  } catch (err) {
+    console.error('PDF generation error:', err);
+    setIsGeneratingPDF(false);
+    onPdfComplete?.(false, `PDF generation failed: ${err.message || 'Unknown error'}`);
+  }
+};
 
   const colors = {
     blue: { primary: '#1e40af', secondary: '#3b82f6', accent: '#60a5fa' },
@@ -329,39 +406,6 @@ const Watermark = ({ text = 'FREE WILL TECHNOLOGIES', unlockedTemplates = [], te
         ))}
       </div>
     );
-  };
-  
-  const renderPagination = () => {
-    if (totalPages > 1) {
-      return (
-        <div className="flex justify-center items-center mt-4 space-x-4">
-          <button 
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="flex items-center px-3 py-1 bg-gray-200 rounded-md disabled:opacity-50"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Previous
-          </button>
-          <span className="text-sm font-medium">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button 
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-            className="flex items-center px-3 py-1 bg-gray-200 rounded-md disabled:opacity-50"
-          >
-            Next
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      );
-    }
-    return null;
   };
 
   const renderContactSection = () => {
@@ -2302,78 +2346,106 @@ const renderCreativeLayout = () => (
 `;
 
 return (
-    <div className="flex flex-col items-center w-full">
-      <style>{mobileStyles}</style>
-      
-      <div className="resume-preview-container w-full">
-        {isMobile && (
-          <div className="mobile-scroll-hint">
-            Pinch to zoom & scroll to view
-          </div>
-        )}
-        
-        <div 
-          ref={previewContainerRef}
-          className="relative bg-white shadow-lg mx-auto"
-          style={{ 
-            width: '210mm',
-            boxSizing: 'border-box',
-          }}
-        >
-          <div 
-            className="resume-content transition-transform duration-300 origin-top"
-            style={{
-              transform: isMobile ? '' : `translateY(-${(currentPage - 1) * pageHeight}px)`,
-            }}
-          >
-            <div 
-              ref={resumeContainerRef} 
-              className="w-full bg-white relative"
-              style={{ 
-                minHeight: '297mm', 
-                padding: '15mm',
-                boxSizing: 'border-box'
-              }}
-            >
-              {renderResumeLayout()}
-            </div>
-          </div>
-        </div>
-      </div>
+  <div className="flex flex-col items-center w-full">
+    <style>{mobileStyles}</style>
 
-      {!isMobile && renderPagination()}
-
-      <div className="mt-4 flex flex-wrap justify-center gap-3">
-        <button
-          onClick={handleDownload}
-          disabled={isGeneratingPDF}
-          className={`flex items-center px-4 py-2 rounded-md text-white transition-colors ${
-            isGeneratingPDF ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-          }`}
-        >
-          {isGeneratingPDF ? (
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-          )}
-          {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
-        </button>
-      </div>
-      
-      {saveStatus.message && (
-        <div className={`mt-3 px-4 py-2 rounded-md text-center ${
-          saveStatus.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
-          {saveStatus.message}
+    <div className="resume-preview-container w-full">
+      {isMobile && (
+        <div className="mobile-scroll-hint">
+          Pinch to zoom & scroll to view
         </div>
       )}
-    </div>
-  );
-});
 
+      <div
+        ref={previewContainerRef}
+        className="relative bg-white shadow-lg mx-auto"
+        style={{
+          width: '210mm',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          className="resume-content"
+        >
+          <div
+            ref={resumeContainerRef}
+            className="w-full bg-white relative"
+            style={{
+              minHeight: '297mm',
+              padding: '15mm',
+              boxSizing: 'border-box',
+            }}
+          >
+            {renderResumeLayout()}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* ⛔ Pagination Removed */}
+
+    <div className="mt-4 flex flex-wrap justify-center gap-3">
+      <button
+        onClick={handleDownload}
+        disabled={isGeneratingPDF}
+        className={`flex items-center px-4 py-2 rounded-md text-white transition-colors ${
+          isGeneratingPDF ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+        }`}
+      >
+        {isGeneratingPDF ? (
+          <svg
+            className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+        ) : (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 mr-1"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+        )}
+        {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
+      </button>
+    </div>
+
+    {saveStatus.message && (
+      <div
+        className={`mt-3 px-4 py-2 rounded-md text-center ${
+          saveStatus.success
+            ? 'bg-green-100 text-green-800'
+            : 'bg-red-100 text-red-800'
+        }`}
+      >
+        {saveStatus.message}
+      </div>
+    )}
+  </div>
+);
+
+});
 export default Preview;
