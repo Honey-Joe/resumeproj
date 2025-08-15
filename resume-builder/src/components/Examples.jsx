@@ -23,13 +23,23 @@ const exampleData = [
           role: 'Lead Frontend Developer',
           company: 'Tech Innovations Inc.',
           period: '2020 - Present',
-          description: 'Led migration to React ecosystem, reducing load times by 40%.'
+          description: 'Led migration to React ecosystem, reducing load times by 40%.',
+          technologies: [
+            { name: 'React' },
+            { name: 'Node.js' },
+            { name: 'AWS' }
+          ]
         },
         {
           role: 'Software Engineer',
           company: 'Digital Solutions LLC',
           period: '2017 - 2020',
-          description: 'Developed RESTful APIs and real-time features using WebSockets.'
+          description: 'Developed RESTful APIs and real-time features using WebSockets.',
+          technologies: [
+            { name: 'Node.js' },
+            { name: 'Express' },
+            { name: 'MongoDB' }
+          ]
         }
       ],
       skills: ['React', 'Node.js', 'TypeScript', 'AWS', 'GraphQL']
@@ -55,13 +65,23 @@ const exampleData = [
           role: 'Senior Product Designer',
           company: 'Creative Minds Co.',
           period: '2019 - Present',
-          description: 'Redesigned flagship product increasing engagement by 35%.'
+          description: 'Redesigned flagship product increasing engagement by 35%.',
+          technologies: [
+            { name: 'Figma' },
+            { name: 'Sketch' },
+            { name: 'InVision' }
+          ]
         },
         {
           role: 'UI Designer',
           company: 'Visionary Studios',
           period: '2017 - 2019',
-          description: 'Created wireframes for apps with 1M+ downloads.'
+          description: 'Created wireframes for apps with 1M+ downloads.',
+          technologies: [
+            { name: 'Adobe XD' },
+            { name: 'Zeplin' },
+            { name: 'Photoshop' }
+          ]
         }
       ],
       skills: ['Figma', 'User Research', 'Prototyping', 'Design Systems']
@@ -87,13 +107,23 @@ const exampleData = [
           role: 'Director of Operations',
           company: 'Global Enterprises Inc.',
           period: '2018 - Present',
-          description: 'Managed $15M budget and led team of 50+.'
+          description: 'Managed $15M budget and led team of 50+.',
+          technologies: [
+            { name: 'SAP' },
+            { name: 'Oracle' },
+            { name: 'Salesforce' }
+          ]
         },
         {
           role: 'Senior Operations Manager',
           company: 'Strategic Solutions Group',
           period: '2014 - 2018',
-          description: 'Oversaw international expansion into 3 markets.'
+          description: 'Oversaw international expansion into 3 markets.',
+          technologies: [
+            { name: 'Tableau' },
+            { name: 'Power BI' },
+            { name: 'SQL' }
+          ]
         }
       ],
       skills: ['Strategic Planning', 'Budget Management', 'Team Leadership']
@@ -228,6 +258,19 @@ const Examples = () => {
                           </div>
                           <p className="text-cyan-400 text-xs font-medium">{exp.company}</p>
                           <p className="text-blue-200 text-xs mt-1">{exp.description}</p>
+
+                          {/* Technology Tags */}
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {Array.isArray(exp.technologies) &&
+                              exp.technologies.map((tech, index) => (
+                                <span
+                                  key={index}
+                                  className="inline-block bg-white text-teal-800 text-xs font-medium px-2 py-0.5 rounded mr-1 mb-1"
+                                >
+                                  {tech.name}
+                                </span>
+                              ))}
+                          </div>
                         </div>
                       ))}
                     </div>

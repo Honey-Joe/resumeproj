@@ -2,28 +2,31 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useCookies } from 'react-cookie';
 
 const Hero = ({ onStartBuilding }) => {
   const navigate = useNavigate();
+  const [cookies] = useCookies(['userToken']);
   const [loginMessage, setLoginMessage] = useState('');
 
   const handleBuildClick = () => {
-    const isLoggedIn = !!localStorage.getItem('userToken');
+    const isLoggedIn = !!cookies.userToken;
+
     if (isLoggedIn) {
       onStartBuilding();
     } else {
       setLoginMessage('You must log in before building your resume');
-      setTimeout(() => setLoginMessage(''), 3000); // Hide after 3 seconds
+      setTimeout(() => setLoginMessage(''), 3000);
       navigate('/AuthPage');
     }
   };
 
   const scrollToExamples = () => {
-  const section = document.getElementById('examples');
-  if (section) {
-    section.scrollIntoView({ behavior: 'smooth' });
+    const section = document.getElementById('examples');
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
   }
-};
 
   return (
     <section id="hero" className="relative py-16 md:py-28 bg-gradient-to-br from-slate-900 to-blue-900">
@@ -361,13 +364,13 @@ const Hero = ({ onStartBuilding }) => {
       
       {/* Floating scroll indicator */}
    <motion.div 
-  className="absolute bottom-6 left-[41%] sm:left-1/2 -translate-x-[45%] sm:-translate-x-1/2 flex flex-col items-center text-blue-300 z-20 pointer-events-none"
+  className="absolute bottom-6 left-[40%] md:left-[48%] transform -translate-x-1/2 flex flex-col items-center text-blue-300 z-20"
   animate={{ y: [0, 6, 0] }}
   transition={{ duration: 2, repeat: Infinity }}
 >
-  <span className="text-xs sm:text-sm mb-2 sm:mb-3">Scroll to explore</span>
+  <span className="text-xs mb-2">Scroll to explore</span>
   <svg 
-    className="w-5 h-2 sm:w-4 sm:h-2 animate-bounce" 
+    className="w-4 h-2 sm:w-4 sm:h-2 animate-bounce" 
     fill="none" 
     stroke="currentColor" 
     viewBox="0 0 24 24" 
@@ -381,8 +384,6 @@ const Hero = ({ onStartBuilding }) => {
     />
   </svg>
 </motion.div>
-
-
     </section>
   );
 };

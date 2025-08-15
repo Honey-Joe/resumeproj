@@ -1,26 +1,11 @@
 <?php
-// === CORS Headers with Strict Origin Validation ===
-// $allowed_origins = [
-//     'https://resumebuilder.freewilltech.in',
-//     'https://resumebuilder.freewilltech.in/builder'
-// ];
-
-// $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-// if (in_array($origin, $allowed_origins)) {
-//     header("Access-Control-Allow-Origin: $origin");
-// } else {
-//     http_response_code(403);
-//     echo json_encode(["status" => "error", "message" => "Origin not allowed"]);
-//     exit;
-// }
-
-
-    header("Access-Control-Allow-Origin: *");
-
-
+// === CORS Headers ===
+header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Content-Type: application/json");
+header("Access-Control-Allow-Credentials: true");
+
 
 // === OPTIONS request ===
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -61,8 +46,9 @@ if (
 $razorpay_order_id = $input['razorpay_order_id'];
 $razorpay_payment_id = $input['razorpay_payment_id'];
 $razorpay_signature = $input['razorpay_signature'];
-$templateId = filter_var($input['templateId'], FILTER_SANITIZE_STRING);
+$templateId = htmlspecialchars(strip_tags($input['templateId']), ENT_QUOTES, 'UTF-8');
 $email = filter_var($input['email'], FILTER_VALIDATE_EMAIL);
+
 
 if (!$email) {
     http_response_code(400);

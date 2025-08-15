@@ -1,6 +1,20 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Helper function to normalize skill data
+const normalizeSkillItem = (item) => {
+  if (typeof item.name === 'string') return item;
+  
+  return {
+    ...item,
+    name: item.name?.name || item.name?.title || JSON.stringify(item.name)
+  };
+};
+
+const normalizeSkillArray = (arr) => {
+  return (arr || []).map(normalizeSkillItem);
+};
+
 const SkillCategory = React.memo(({ 
   title, 
   icon, 
@@ -8,19 +22,27 @@ const SkillCategory = React.memo(({
   onRemoveItem,
   hasLevel = false
 }) => {
+  // Safely render values as strings
+  const renderValue = (value) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value;
+    if (value.name) return value.name;
+    return JSON.stringify(value);
+  };
+
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20 }} 
+      initial={{ opacity: 0, y: 10 }} 
       animate={{ opacity: 1, y: 0 }} 
-      transition={{ duration: 0.3 }}
-      className="bg-white rounded-xl border border-gray-200 shadow-sm w-full mb-4"
+      transition={{ duration: 0.2 }}
+      className="bg-slate-800/50 rounded-lg border border-slate-600 shadow-lg w-full mb-4"
     >
-      <div className="flex justify-between items-center p-4 border-b border-gray-100">
-        <h3 className="text-base font-semibold flex items-center text-gray-800">
-          <i className={`${icon} mr-2 text-indigo-500`}></i>
+      <div className="flex justify-between items-center px-4 py-3 border-b border-slate-600">
+        <h3 className="text-sm font-semibold flex items-center text-white">
+          <i className={`${icon} mr-2 text-indigo-400 text-sm`}></i>
           {title}
         </h3>
-        <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded-full">
+        <span className="bg-indigo-900/30 text-indigo-300 text-xs px-2 py-1 rounded-full">
           {items.length} skills
         </span>
       </div>
@@ -30,46 +52,46 @@ const SkillCategory = React.memo(({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-6 text-gray-400 text-sm"
+            className="text-center py-5 text-slate-500 text-sm"
           >
             No skills added yet
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
-            {items.map((skill, index) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3">
+            {items.map((skill) => (
               <motion.div
-                key={`${skill.id}-${index}`}
-                initial={{ opacity: 0, y: 10 }}
+                key={skill.id}
+                initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-200"
+                transition={{ duration: 0.15 }}
+                className="flex items-center justify-between bg-slate-700/30 rounded-lg px-3 py-2 border border-slate-600"
               >
-                <div className="flex flex-wrap gap-2 items-center min-w-0">
-                  <div className="text-sm font-medium text-gray-800 px-3 py-1 bg-white rounded-md border border-gray-300 truncate max-w-[140px]">
-                    {skill.name}
+                <div className="flex flex-wrap gap-1.5 items-center min-w-0">
+                  <div className="text-xs font-medium text-white px-2 py-1 bg-slate-800/50 rounded border border-slate-600 truncate max-w-[120px]">
+                    {renderValue(skill.name)}
                   </div>
                   {hasLevel && skill.level && (
-                    <div className="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2 py-1">
-                      {skill.level}
+                    <div className="text-xs bg-indigo-900/30 text-indigo-300 rounded-full px-2 py-0.5">
+                      {renderValue(skill.level)}
                     </div>
                   )}
                   {skill.issuer && (
-                    <div className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-1">
-                      {skill.issuer}
+                    <div className="text-xs bg-emerald-900/30 text-emerald-300 rounded-full px-2 py-0.5">
+                      {renderValue(skill.issuer)}
                     </div>
                   )}
                 </div>
                 
                 <motion.button
                   onClick={() => onRemoveItem(skill.id)}
-                  className="text-red-500 hover:text-red-700 flex items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-200 shadow-sm"
-                  whileHover={{ scale: 1.1 }}
+                  className="text-red-400 hover:text-red-300 flex items-center justify-center w-6 h-6 rounded-full bg-slate-700 border border-slate-600 shadow-sm"
+                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.9 }}
-                  aria-label={`Remove ${skill.name}`}
+                  aria-label={`Remove ${renderValue(skill.name)}`}
                   tabIndex={0}
                 >
-                  <i className="fas fa-times text-sm"></i>
+                  <i className="fas fa-times text-xs"></i>
                 </motion.button>
               </motion.div>
             ))}
@@ -81,13 +103,23 @@ const SkillCategory = React.memo(({
 });
 
 const SkillsStep = ({ resumeData, updateResumeData }) => {
-  // State for each category
-  const [softSkills, setSoftSkills] = useState(resumeData.softSkills || []);
-  const [programmingSkills, setProgrammingSkills] = useState(resumeData.programmingSkills || []);
-  const [frameworks, setFrameworks] = useState(resumeData.frameworks || []);
-  const [languages, setLanguages] = useState(resumeData.languages || []);
-  const [certifications, setCertifications] = useState(resumeData.certifications || []);
-  
+  // Normalize initial data
+  const [softSkills, setSoftSkills] = useState(() => 
+    normalizeSkillArray(resumeData.softSkills)
+  );
+  const [programmingSkills, setProgrammingSkills] = useState(() => 
+    normalizeSkillArray(resumeData.programmingSkills)
+  );
+  const [frameworks, setFrameworks] = useState(() => 
+    normalizeSkillArray(resumeData.frameworks)
+  );
+  const [languages, setLanguages] = useState(() => 
+    normalizeSkillArray(resumeData.languages)
+  );
+  const [certifications, setCertifications] = useState(() => 
+    normalizeSkillArray(resumeData.certifications)
+  );
+
   // State for new skill input
   const [newSkill, setNewSkill] = useState({
     category: 'softSkills',
@@ -190,46 +222,46 @@ const SkillsStep = ({ resumeData, updateResumeData }) => {
 
   return (
     <div className="space-y-6">
-      <div className="mb-6">
-        <h3 className="text-xl font-bold text-gray-800 flex items-center">
-          <i className="fas fa-star text-yellow-400 mr-2"></i>
+      <div className="mb-5">
+        <h3 className="text-xl font-bold text-white flex items-center">
+          <i className="fas fa-star text-yellow-400 mr-3 text-xl"></i>
           Skills & Expertise
         </h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Categorize your skills for maximum impact
+        <p className="text-sm text-slate-400 mt-1">
+          Categorize your skills here
         </p>
       </div>
 
        <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
+        initial={{ opacity: 0, y: 10 }} 
         animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.4 }}
-        className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm"
+        transition={{ duration: 0.3 }}
+        className="bg-slate-800/50 p-5 rounded-xl border border-slate-600 shadow-lg"
       >
-        <h4 className="text-base font-semibold text-gray-800 mb-4 flex items-center">
-          <i className="fas fa-plus-circle text-indigo-500 mr-2"></i>
+        <h4 className="text-sm font-semibold text-white mb-4 flex items-center">
+          <i className="fas fa-plus-circle text-indigo-400 mr-3 text-sm"></i>
           Add New Skill/Certification
         </h4>
         
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-700 mb-1 font-medium">Skill Name</label>
+              <label className="block text-sm text-slate-300 mb-2 font-medium">Skill Name</label>
               <input
                 type="text"
                 value={newSkill.name}
                 onChange={(e) => setNewSkill({...newSkill, name: e.target.value})}
                 placeholder={placeholders[placeholderIndex]}
-                className="w-full rounded-lg p-3 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                className="w-full rounded-lg p-3 border border-slate-600 text-sm bg-slate-800/30 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             
             <div>
-              <label className="block text-sm text-gray-700 mb-1 font-medium">Category</label>
+              <label className="block text-sm text-slate-300 mb-2 font-medium">Category</label>
               <select 
                 value={newSkill.category}
                 onChange={(e) => setNewSkill({...newSkill, category: e.target.value})}
-                className="w-full rounded-lg p-3 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                className="w-full rounded-lg p-3 border border-slate-600 text-sm bg-slate-800/30 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option value="softSkills">Soft Skills</option>
                 <option value="programmingSkills">Programming Languages</option>
@@ -244,11 +276,11 @@ const SkillsStep = ({ resumeData, updateResumeData }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {newSkill.category === 'languages' && (
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1 font-medium">Proficiency Level</label>
+                  <label className="block text-sm text-slate-300 mb-2 font-medium">Proficiency Level</label>
                   <select
                     value={newSkill.level}
                     onChange={(e) => setNewSkill({...newSkill, level: e.target.value})}
-                    className="w-full rounded-lg p-3 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full rounded-lg p-3 border border-slate-600 text-sm bg-slate-800/30 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">Select Level</option>
                     <option value="Native">Native</option>
@@ -262,13 +294,13 @@ const SkillsStep = ({ resumeData, updateResumeData }) => {
               
               {newSkill.category === 'certifications' && (
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1 font-medium">Issuer (Optional)</label>
+                  <label className="block text-sm text-slate-300 mb-2 font-medium">Issuer (Optional)</label>
                   <input
                     type="text"
                     value={newSkill.issuer}
                     onChange={(e) => setNewSkill({...newSkill, issuer: e.target.value})}
                     placeholder="e.g. AWS, Google, Microsoft"
-                    className="w-full rounded-lg p-3 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full rounded-lg p-3 border border-slate-600 text-sm bg-slate-800/30 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
               )}
@@ -281,15 +313,15 @@ const SkillsStep = ({ resumeData, updateResumeData }) => {
               disabled={!newSkill.name.trim()}
               className={`px-5 py-2.5 rounded-lg text-sm font-medium flex items-center ${
                 newSkill.name.trim() 
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md hover:shadow-lg' 
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30' 
+                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
               }`}
               whileHover={{ 
-                scale: newSkill.name.trim() ? 1.03 : 1,
+                scale: newSkill.name.trim() ? 1.02 : 1,
               }}
               whileTap={{ scale: newSkill.name.trim() ? 0.98 : 1 }}
             >
-              <i className="fas fa-plus mr-2"></i> 
+              <i className="fas fa-plus mr-2 text-sm"></i> 
               Add Skill
             </motion.button>
           </div>
@@ -333,8 +365,6 @@ const SkillsStep = ({ resumeData, updateResumeData }) => {
           onRemoveItem={(id) => handleRemoveSkill('certifications', id)}
         />
       </div>
-
-     
     </div>
   );
 };

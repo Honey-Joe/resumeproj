@@ -30,8 +30,8 @@ const HobbiesStep = ({ resumeData, updateResumeData }) => {
       className="space-y-6 w-full"
     >
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-          <i className="fas fa-heart text-indigo-500 mr-3"></i>
+        <h3 className="text-xl font-semibold text-slate-200 flex items-center">
+          <i className="fas fa-heart text-indigo-400 mr-3"></i>
           Hobbies & Interests
         </h3>
         <div className="flex space-x-2">
@@ -39,7 +39,7 @@ const HobbiesStep = ({ resumeData, updateResumeData }) => {
             onClick={removeLastHobby}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            className="w-9 h-9 flex items-center justify-center bg-gray-200 text-gray-700 rounded-full shadow-sm hover:shadow-md transition-all"
+            className="w-9 h-9 flex items-center justify-center bg-slate-700 text-slate-200 rounded-full shadow-sm hover:shadow-md transition-all"
             title="Remove Last Hobby"
           >
             <i className="fas fa-minus text-sm"></i>
@@ -74,7 +74,7 @@ const HobbiesStep = ({ resumeData, updateResumeData }) => {
                 transition: { duration: 0.2 }
               }}
               transition={{ duration: 0.3 }}
-              className="flex items-center p-3 bg-white rounded-xl shadow-xs border border-gray-100 hover:border-indigo-100 transition-colors"
+              className="flex items-center p-3 bg-slate-800/50 rounded-lg border border-slate-600 hover:border-indigo-500/50 transition-colors"
             >
               <div className="flex-grow">
                 <input
@@ -82,7 +82,7 @@ const HobbiesStep = ({ resumeData, updateResumeData }) => {
                   placeholder="e.g., Photography, Chess, Hiking"
                   value={hobby.name}
                   onChange={(e) => handleChange(index, e.target.value)}
-                  className="w-full rounded-lg p-3 bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 text-gray-700 placeholder-gray-400 transition-all"
+                  className="w-full rounded-lg p-3 bg-slate-800/50 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-200 placeholder-slate-400 transition-all"
                 />
               </div>
             </motion.div>
@@ -96,7 +96,7 @@ const HobbiesStep = ({ resumeData, updateResumeData }) => {
             onClick={addHobby}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            className="w-9 h-9 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-full shadow-sm hover:shadow-md transition-all"
+            className="w-9 h-9 flex items-center justify-center bg-indigo-500 text-white rounded-full shadow-sm hover:shadow-md transition-all"
             title="Add Another Hobby"
           >
             <i className="fas fa-plus text-sm"></i>
@@ -106,5 +106,6 @@ const HobbiesStep = ({ resumeData, updateResumeData }) => {
     </motion.div>
   );
 };
+
 
 export default HobbiesStep;

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 const InputField = ({ id, label, value, onChange, placeholder, type = "text", className = "" }) => {
   const inputClass =
-    "w-full rounded-lg p-3 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-800 bg-white";
+    "w-full rounded-lg p-3 border focus:outline-none focus:ring-2 focus:ring-offset-1 focus:border-transparent text-white bg-slate-800/50 border-slate-600 placeholder-slate-400 focus:ring-indigo-500";
 
   return (
     <motion.div
@@ -13,7 +13,7 @@ const InputField = ({ id, label, value, onChange, placeholder, type = "text", cl
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-slate-200 mb-1">{label}</label>
       {type === 'textarea' ? (
         <textarea
           id={id}
@@ -50,13 +50,13 @@ const PersonalStep = ({ resumeData, updateResumeData }) => {
   return (
     <div>
       <motion.h3
-        className="text-2xl font-bold mb-6 text-gray-800 pb-2 border-b border-gray-200 flex items-center"
+        className="text-2xl font-bold mb-6 text-white pb-2 border-b border-slate-600 flex items-center"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
         <motion.i
-          className="fas fa-user-circle text-primary mr-3 text-2xl"
+          className="fas fa-user-circle text-indigo-400 mr-3 text-2xl"
           animate={{ rotate: 360 }}
           transition={{ duration: 0.8, type: "spring" }}
         ></motion.i>

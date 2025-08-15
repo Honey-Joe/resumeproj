@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useCookies } from 'react-cookie';
 
 const AuthPage = () => {
+  const [cookies, setCookie] = useCookies(['user', 'adminToken', 'userToken']);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
@@ -16,13 +18,13 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Auto-redirect admin on mount
   useEffect(() => {
-  const token = localStorage.getItem("adminToken");
-  if (token && window.location.pathname !== "/adminpanel") {
-    navigate("/adminpanel", { replace: true });
-  }
-}, []);
-
+    const token = localStorage.getItem("adminToken") || cookies.adminToken;
+    if (token && window.location.pathname !== "/adminpanel") {
+      navigate("/adminpanel", { replace: true });
+    }
+  }, [cookies.adminToken]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -62,27 +64,39 @@ const AuthPage = () => {
         headers: { 'Content-Type': 'application/json' },
       });
 
-      console.log(data);
+       if (data.success) {
+      const { token, role, email, name } = data;
+      
+      // Store tokens in cookies
+      setCookie('userToken', token, { 
+        path: '/', 
+        maxAge: 30 * 24 * 60 * 60,
+        sameSite: 'strict'
+      });
+      
+      setCookie('userData', JSON.stringify({ email, name, role }), {
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60,
+        sameSite: 'strict'
+      });
 
-     if (data.success) {
-  const { token, role } = data;
-
-  if (role === 'admin') {
-    localStorage.setItem("adminToken", token);
-    navigate("/adminpanel", { replace: true });
-  } else {
-    localStorage.setItem("userToken", token);
-    navigate("/builder", { replace: true });
-    localStorage.setItem("userName" , data?.user?.name)
-    localStorage.setItem("userEmail",data.user.email);
-  }
+      // Store admin token separately
+      if (role === 'admin') {
+        setCookie('adminToken', token, {
+          path: '/',
+          maxAge: 30 * 24 * 60 * 60,
+          sameSite: 'strict'
+        });
+        navigate("/adminpanel");
       } else {
-        setError(data.message || 'Authentication failed');
+        navigate("/builder");
       }
-    } catch (err) {
+    }
+  } catch (err) {
       console.error('Auth error:', err);
       setError(
-        err.response?.data?.message || 'Something went wrong. Please try again.'
+        err.response?.data?.message ||
+          'Something went wrong. Please try again.'
       );
     } finally {
       setLoading(false);
@@ -92,12 +106,12 @@ const AuthPage = () => {
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-gray-900 p-4">
       <motion.div
-        className="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-md"
+        className="bg-white w-full max-w-md p-6 sm:p-8 rounded-2xl shadow-2xl"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <h2 className="text-2xl sm:text-3xl font-extrabold mb-4 sm:mb-6 text-center text-blue-900">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-center mb-4 sm:mb-6 text-blue-900">
           {isLoginMode ? 'Welcome Back!' : 'Create an Account'}
         </h2>
 
@@ -109,7 +123,7 @@ const AuthPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLoginMode && (
-            <div className="space-y-3">
+            <>
               <input
                 type="text"
                 name="name"
@@ -123,40 +137,39 @@ const AuthPage = () => {
                 type="number"
                 name="age"
                 placeholder="Age"
-                min="16"
+                min="15"
                 max="100"
                 value={formData.age}
                 onChange={handleChange}
                 required
                 className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm sm:text-base"
               />
-            </div>
+            </>
           )}
 
-          <div className="space-y-3">
-            <input
-              type="text"
-              name="identifier"
-              placeholder={isLoginMode ? 'Username or Email' : 'Email'}
-              value={formData.identifier}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm sm:text-base"
-            />
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              minLength="6"
-              className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm sm:text-base"
-            />
-          </div>
+          <input
+            type="text"
+            name="identifier"
+            placeholder={isLoginMode ? 'Username or Email' : 'Email'}
+            value={formData.identifier}
+            onChange={handleChange}
+            required
+            className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm sm:text-base"
+          />
+
+          <input
+            type="password"
+            name="password"
+            placeholder={isLoginMode ? 'Password' : 'Set Password'}
+            value={formData.password}
+            onChange={handleChange}
+            required
+            minLength="6"
+            className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm sm:text-base"
+          />
 
           {error && (
-            <p className="text-red-600 text-center font-medium text-sm py-2">
+            <p className="text-red-600 text-center text-sm font-medium py-1">
               {error}
             </p>
           )}
@@ -187,12 +200,12 @@ const AuthPage = () => {
                     r="10"
                     stroke="currentColor"
                     strokeWidth="4"
-                  ></circle>
+                  />
                   <path
                     className="opacity-75"
                     fill="currentColor"
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
+                  />
                 </svg>
                 Processing...
               </div>
@@ -217,8 +230,8 @@ const AuthPage = () => {
         <div className="mt-4 text-center">
           <p className="text-xs sm:text-sm text-gray-500">
             {isLoginMode
-              ? 'For admin access, use admin credentials'
-              : 'By signing up, you agree to our Terms and Privacy Policy'}
+              ? 'Use Your Login Credentials'
+              : "Don't forgot your Email and Password!"}
           </p>
         </div>
       </motion.div>

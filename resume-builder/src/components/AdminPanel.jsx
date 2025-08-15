@@ -1,31 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useCookies } from 'react-cookie';
 import axios from 'axios';
-import VisitCounter from './VisitCounter';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+
 
 const AdminPanel = () => {
+  const [cookies, setCookie, removeCookie] = useCookies(['adminToken']);
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
+  const [templateStats, setTemplateStats] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('name');
+  const [sortBy, setSortBy] = useState('date');
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const usersPerPage = 8;
-  const [error, setError] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const usersPerPage = 10;
 
+  // 🔐 Fetch Users
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const token = localStorage.getItem("adminToken");
+        const token = cookies.adminToken;
+        if (!token) return console.warn("No admin token in cookies.");
+
         const response = await axios.get(
           "https://apiresumebbuilder.freewilltech.in/get_users.php",
           {
             headers: { Authorization: `Bearer ${token}` },
+            withCredentials: true,
           }
         );
 
-        // ✅ Support both {users: []} or [] directly
         const userData = Array.isArray(response.data)
           ? response.data
           : Array.isArray(response.data.users)
@@ -42,13 +51,39 @@ const AdminPanel = () => {
         console.error("Error fetching users:", err);
         setError("Failed to fetch users. Please try again later.");
       } finally {
-        setLoading(false); // ✅ Stop loading after fetch completes
+        setLoading(false);
       }
     };
 
     fetchUsers();
-  }, []);
+  }, [cookies.adminToken]);
 
+  // 📊 Fetch Template Stats
+  useEffect(() => {
+  if (!cookies.adminToken) return;
+
+  const fetchTemplateStats = async () => {
+    try {
+      const response = await axios.get(
+        "https://apiresumebbuilder.freewilltech.in/get_template_stats.php",
+        {
+          headers: { Authorization: `Bearer ${cookies.adminToken}` },
+          withCredentials: true
+        }
+      );
+
+      if (Array.isArray(response.data.stats)) {
+        setTemplateStats(response.data.stats);
+      }
+    } catch (err) {
+      console.error("Error fetching template stats:", err);
+    }
+  };
+
+  fetchTemplateStats();
+}, [cookies.adminToken]);
+
+  // 🔍 Filter & Sort Users
   useEffect(() => {
     let filtered = [...users];
     if (searchTerm.trim()) {
@@ -70,23 +105,33 @@ const AdminPanel = () => {
     setCurrentPage(1);
   }, [searchTerm, users, roleFilter, sortBy]);
 
+  // 🚪 Logout
   const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('role');
+    removeCookie('adminToken');
+    removeCookie('userToken');
+    removeCookie('role');
     window.location = '/';
   };
 
+  // ❌ Delete User
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      await axios.post("https://apiresumebbuilder.freewilltech.in/deleteUser.php", { id });
+      await axios.post(
+        "https://apiresumebbuilder.freewilltech.in/deleteUser.php",
+        { id },
+        {
+          headers: { Authorization: `Bearer ${cookies.adminToken}` },
+          withCredentials: true,
+        }
+      );
       setUsers(prev => prev.filter(u => u.id !== id));
     } catch (err) {
       console.error("Delete failed:", err);
     }
   };
 
+  // 📤 Export CSV
   const handleExportCSV = () => {
     const csv = [
       ['ID', 'Name', 'Email', 'Age', 'Role', 'Joined', 'Last Login'],
@@ -104,11 +149,34 @@ const AdminPanel = () => {
     link.click();
   };
 
+  // 📥 Fetch User's Unlocked Templates
+ const fetchTemplates = async (email) => {
+  try {
+    const token = cookies.adminToken;
+    
+    const response = await axios.get(
+      `https://apiresumebbuilder.freewilltech.in/get_unlocked_templates.php?email=${email}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true 
+      }
+    );
+
+    setTemplates(response.data.templates || []);
+    setShowTemplatesModal(true);
+  } catch (err) {
+    console.error("Error fetching templates:", err);
+    alert("Failed to fetch templates. Please check console for details.");
+  }
+};
+
+  // 📄 Pagination
   const indexOfLastUser = currentPage * usersPerPage;
   const indexOfFirstUser = indexOfLastUser - usersPerPage;
   const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
 
+  // 📊 Role Counts
   const roleCounts = Array.isArray(users)
     ? users.reduce((acc, user) => {
         const role = user.role || "unknown";
@@ -117,6 +185,7 @@ const AdminPanel = () => {
       }, {})
     : {};
 
+  // ⏳ Loading Spinner
   if (loading) {
     return (
       <div className="min-h-screen bg-blue-950 flex items-center justify-center">
@@ -159,9 +228,6 @@ const AdminPanel = () => {
             <h2 className="text-2xl font-bold text-white">User Management</h2>
             <p className="text-blue-200">View and manage all registered users</p>
           </div>
-          <div>
-            <VisitCounter></VisitCounter>
-          </div>
 
           {/* Filters */}
           <div className="p-6 space-y-4">
@@ -196,7 +262,26 @@ const AdminPanel = () => {
               ))}
             </div>
 
-
+            {/* Template stats */}
+            {templateStats.length > 0 && (
+              <div className="mt-4 p-4 bg-blue-750 rounded-xl">
+                <h3 className="text-lg font-bold text-orange-300 mb-3">Template Popularity</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {templateStats.map((stat, index) => (
+                    <motion.div 
+                      key={index}
+                      className="bg-blue-700 rounded-xl p-3 text-center"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <div className="text-2xl font-bold text-orange-400">{stat.unlock_count}</div>
+                      <div className="text-blue-200">Template {stat.template_id}</div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* User table */}
             <div className="overflow-x-auto mt-4">
@@ -207,7 +292,10 @@ const AdminPanel = () => {
                     <th className="py-3 px-4 text-left">Name</th>
                     <th className="py-3 px-4 text-left">Email</th>
                     <th className="py-3 px-4 text-left">Age</th>
+                    <th className="py-3 px-4 text-left">Role</th>
                     <th className="py-3 px-4 text-left">Joined</th>
+                    <th className="py-3 px-4 text-left">Last Login</th>
+                    <th className="py-3 px-4 text-left">Templates</th>
                     <th className="py-3 px-4 text-left">Actions</th>
                   </tr>
                 </thead>
@@ -224,9 +312,27 @@ const AdminPanel = () => {
                       <td className="py-3 px-4 border-b border-blue-700">{user.name}</td>
                       <td className="py-3 px-4 border-b border-blue-700">{user.email}</td>
                       <td className="py-3 px-4 border-b border-blue-700">{user.age}</td>
-                      
+                      <td className="py-3 px-4 border-b border-blue-700 capitalize">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          user.role === 'student' ? 'bg-blue-600' :
+                          user.role === 'employee' ? 'bg-green-600' : 'bg-orange-600'
+                        }`}>{user.role}</span>
+                      </td>
                       <td className="py-3 px-4 border-b border-blue-700">{new Date(user.createdAt).toLocaleDateString()}</td>
-                     
+                      <td className="py-3 px-4 border-b border-blue-700">
+                        {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}
+                      </td>
+                      <td className="py-3 px-4 border-b border-blue-700">
+                        <button 
+                          onClick={() => {
+                            setSelectedUser(user);
+                             fetchTemplates(user.email);
+                          }}
+                          className="text-blue-300 hover:text-blue-100"
+                        >
+                          <i className="fas fa-eye mr-1"></i> View
+                        </button>
+                      </td>
                       <td className="py-3 px-4 border-b border-blue-700">
                         <button onClick={() => handleDelete(user.id)} className="text-red-400 hover:text-red-600">
                           <i className="fas fa-trash-alt"></i>
@@ -257,6 +363,70 @@ const AdminPanel = () => {
           </div>
         </div>
       </div>
+
+      {/* Templates Modal */}
+      {showTemplatesModal && (
+        <motion.div 
+          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => setShowTemplatesModal(false)}
+        >
+          <motion.div 
+            className="bg-blue-800 rounded-2xl shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden"
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 bg-gradient-to-r from-blue-700 to-blue-800 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-white">
+                Templates Unlocked for {selectedUser?.name || 'User'}
+              </h3>
+              <button 
+                onClick={() => setShowTemplatesModal(false)}
+                className="text-white hover:text-gray-300 text-xl"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto max-h-[65vh]">
+              {templates.length > 0 ? (
+                <table className="w-full text-white">
+                  <thead>
+                    <tr className="bg-blue-700">
+                      <th className="py-2 px-4 text-left">Template ID</th>
+                      <th className="py-2 px-4 text-left">Name</th>
+                      <th className="py-2 px-4 text-left">Unlocked Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {templates.map((template, idx) => (
+                      <tr 
+                        key={template.id} 
+                        className={idx % 2 === 0 ? 'bg-blue-800' : 'bg-blue-850'}
+                      >
+                        <td className="py-2 px-4">{template.id}</td>
+                        <td className="py-2 px-4">{template.name}</td>
+                        <td className="py-2 px-4">
+                          {template.unlocked_date 
+                            ? new Date(template.unlocked_date).toLocaleDateString() 
+                            : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-center py-8 text-blue-200">
+                  <i className="fas fa-file-exclamation text-4xl mb-3"></i>
+                  <p>No templates unlocked yet</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   );
 };

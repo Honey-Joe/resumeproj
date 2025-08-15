@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useCookies } from 'react-cookie';
 
-const Header = ({ onExport }) => {
+const Header = () => {
+  const [cookies, , removeCookie] = useCookies(['userToken', 'adminToken', 'user', 'resumeData']);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const userEmail = cookies.userData?.email || "";
+  const userName = cookies.userData?.name || "";
+  const firstLetter = userName.trim().charAt(0).toUpperCase() || "U";
 
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
@@ -27,36 +33,30 @@ const Header = ({ onExport }) => {
   }, [mobileMenuOpen]);
 
   useEffect(() => {
-    const userToken = localStorage.getItem('userToken');
-    const adminToken = localStorage.getItem('adminToken');
-    const storedUser = sessionStorage.getItem('user');
+    const userToken = cookies.userToken;
+    const adminToken = cookies.adminToken;
+    const storedUser = cookies.user;
 
     if (userToken || adminToken) {
       setIsAuthenticated(true);
       try {
-        setUser(storedUser ? JSON.parse(storedUser) : null);
+        setUser(storedUser || null);
       } catch (error) {
-        console.error('Invalid JSON in user:', error);
+        console.error('Invalid user data in cookie:', error);
         setUser(null);
       }
     } else {
       setIsAuthenticated(false);
       setUser(null);
     }
-  }, [location]);
+  }, [cookies, location]);
 
   const handleLogout = () => {
-    sessionStorage.removeItem('isLoggedIn');
-    sessionStorage.removeItem('user');
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem("userName")
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("resumedata");
-    setIsAuthenticated(false);
-    setUser(null);
-    closeMobileMenu();
-    window.location.href = '/';
+    removeCookie('userToken');
+    removeCookie('adminToken');
+    removeCookie('user');
+    removeCookie('resumeData');
+    navigate('/');
   };
 
   const UserDropdown = () => (
@@ -70,23 +70,9 @@ const Header = ({ onExport }) => {
           transition={{ duration: 0.2 }}
         >
           <div className="p-4 border-b border-blue-700">
-            <p className="text-cyan-100 font-medium truncate">{user?.name || 'User'}</p>
-            <p className="text-blue-300 text-sm truncate">{user?.email || 'user@example.com'}</p>
+            <p className="text-cyan-100 font-medium truncate">{userName || 'User'}</p>
+            <p className="text-blue-300 text-sm truncate">{userEmail || 'user@example.com'}</p>
           </div>
-
-          <motion.div
-            whileHover={{ backgroundColor: 'rgba(255, 165, 0, 0.15)' }}
-            className="px-4 py-3 text-blue-100 cursor-pointer"
-          >
-            <i className="fas fa-user mr-3 text-amber-400"></i> Profile
-          </motion.div>
-
-          <motion.div
-            whileHover={{ backgroundColor: 'rgba(255, 165, 0, 0.15)' }}
-            className="px-4 py-3 text-blue-100 cursor-pointer"
-          >
-            <i className="fas fa-cog mr-3 text-amber-400"></i> Settings
-          </motion.div>
 
           <motion.div
             whileHover={{ backgroundColor: 'rgba(255, 165, 0, 0.15)' }}
@@ -130,7 +116,7 @@ const Header = ({ onExport }) => {
             }}
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
           >
-            FWT Resume Builder
+            FreeWill Resume Builder
           </motion.h1>
         </div>
 
@@ -138,15 +124,6 @@ const Header = ({ onExport }) => {
         <div className="md:hidden flex items-center">
           {isAuthenticated ? (
             <div className="flex items-center space-x-4">
-              <motion.button
-                onClick={onExport}
-                className="bg-gradient-to-r from-amber-500 to-amber-400 text-blue-950 px-3 py-1.5 rounded-lg font-bold shadow-lg flex items-center"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <i className="fas fa-download"></i>
-              </motion.button>
-
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="relative"
@@ -156,7 +133,7 @@ const Header = ({ onExport }) => {
                     <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-amber-500 to-amber-400">
-                      <span className="text-blue-950 font-bold text-sm">{user?.name?.charAt(0) || 'U'}</span>
+                      <span className="text-blue-950 font-bold text-sm">{firstLetter || 'U'}</span>
                     </div>
                   )}
                 </div>
@@ -209,23 +186,6 @@ const Header = ({ onExport }) => {
           </nav>
         ) : (
           <div className="hidden md:flex items-center space-x-5">
-            <motion.button
-              onClick={onExport}
-              className="bg-gradient-to-r from-amber-500 to-amber-400 text-blue-950 px-4 py-2 rounded-lg items-center font-bold shadow-lg flex"
-              whileHover={{
-                scale: 1.08,
-                boxShadow: '0 0 25px rgba(251, 191, 36, 0.8)',
-                background: [
-                  'linear-gradient(to right, #f59e0b, #fbbf24)',
-                  'linear-gradient(to right, #fbbf24, #f59e0b)',
-                ],
-                transition: { duration: 0.5, repeat: Infinity, repeatType: 'reverse' },
-              }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <i className="fas fa-download mr-2"></i> Export
-            </motion.button>
-
             <div className="relative">
               <motion.button
                 className="flex items-center space-x-2"
@@ -237,7 +197,7 @@ const Header = ({ onExport }) => {
                     <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-amber-500 to-amber-400">
-                      <span className="text-blue-950 font-bold text-lg">{user?.name?.charAt(0) || 'U'}</span>
+                      <span className="text-blue-950 font-bold text-lg">{firstLetter|| 'U'}</span>
                     </div>
                   )}
                 </div>
@@ -297,18 +257,6 @@ const Header = ({ onExport }) => {
                         Sign Up
                       </Link>
                     </motion.div>
-
-                    <div className="pt-8 border-t border-blue-700">
-                      <p className="text-center text-blue-300 mb-4">Get the app</p>
-                      <div className="flex justify-center space-x-4">
-                        <motion.a href="#" className="bg-slate-700 p-2 rounded-lg" whileHover={{ y: -3 }}>
-                          <i className="fab fa-apple text-2xl text-white"></i>
-                        </motion.a>
-                        <motion.a href="#" className="bg-slate-700 p-2 rounded-lg" whileHover={{ y: -3 }}>
-                          <i className="fab fa-android text-2xl text-green-400"></i>
-                        </motion.a>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </motion.div>

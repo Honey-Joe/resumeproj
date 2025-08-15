@@ -2,6 +2,13 @@ import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } f
 import { motion } from 'framer-motion';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
+import axios from 'axios';
+
+const A4_WIDTH_MM = 210;
+const A4_HEIGHT_MM = 297;
+const PX_PER_MM = 96 / 25.4;  // 96 DPI
+const A4_WIDTH_PX = A4_WIDTH_MM * PX_PER_MM;
+const A4_HEIGHT_PX = A4_HEIGHT_MM * PX_PER_MM;
 
 // Icons definition
 const icons = {
@@ -102,49 +109,165 @@ const icons = {
   ),
 };
 
-const Preview = forwardRef(({ resumeData, onRefresh, onPdfStart, onPdfComplete, unlockedTemplates = [] }, ref) => {
-  const resumeContainerRef = useRef(null);
+const Preview = forwardRef(({ resumeData, onRefresh, onPdfStart, onPdfComplete, unlockedTemplates=[]}, ref) => {
+ const resumeContainerRef = useRef(null);
+  const previewContainerRef = useRef(null);
+  
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [saveStatus, setSaveStatus] = useState({ success: false, message: '' });
   const [isMobile, setIsMobile] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [pageHeight, setPageHeight] = useState(0);
-  const previewContainerRef = useRef(null);
+  const [showWatermarkModal, setShowWatermarkModal] = useState(false);
+  const [isTemplateUnlocked, setIsTemplateUnlocked] = useState(false);
+  
+  // Zoom and pan controls
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [startTouches, setStartTouches] = useState(null);
+  const [startPosition, setStartPosition] = useState({ x: 0, y: 0 });
+  const [baseScale, setBaseScale] = useState(1);
 
+  // Check template unlock status
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
+    if (resumeData?.template) {
+      const unlocked = unlockedTemplates.includes(resumeData.template);
+      setIsTemplateUnlocked(unlocked);
+    }
+  }, [resumeData?.template, unlockedTemplates]);
 
+  // Responsive layout detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Expose download function via ref
+  // Expose download method via ref
   useImperativeHandle(ref, () => ({
-    downloadResume: handleDownload,
+    downloadResume: handleDownloadClick,
   }));
 
-
- const A4_WIDTH_PX = 794; // 210mm * (96 / 25.4)
-  const A4_HEIGHT_PX = 1123; // 297mm * (96 / 25.4)
-
+  // Responsive scaling
   useEffect(() => {
-    const calculatePageHeight = () => {
-      if (resumeContainerRef.current) {
-        setPageHeight(A4_HEIGHT_PX);
-        const totalHeight = resumeContainerRef.current.scrollHeight;
-        const pages = Math.ceil(totalHeight / A4_HEIGHT_PX);
-        setTotalPages(pages);
+    const updateBaseScale = () => {
+      if (window.innerWidth <= 768) setBaseScale(0.85);
+      else if (window.innerWidth <= 1024) setBaseScale(0.9);
+      else setBaseScale(1);
+    };
+    
+    updateBaseScale();
+    window.addEventListener('resize', updateBaseScale);
+    return () => window.removeEventListener('resize', updateBaseScale);
+  }, []);
+
+  // Page height calculation
+
+  // Touch and zoom handlers
+  useEffect(() => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        setStartPosition({ 
+          x: e.touches[0].clientX, 
+          y: e.touches[0].clientY 
+        });
+      } else if (e.touches.length === 2) {
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const distance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+        setStartTouches({ distance, scale });
       }
     };
 
-    calculatePageHeight();
-    window.addEventListener('resize', calculatePageHeight);
-    return () => window.removeEventListener('resize', calculatePageHeight);
-  }, [resumeData]);
+    const handleTouchMove = (e) => {
+      if (e.touches.length === 1 && startPosition) {
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - startPosition.x;
+        const deltaY = touch.clientY - startPosition.y;
+        
+        setPosition(prev => ({
+          x: prev.x + deltaX / baseScale,
+          y: prev.y + deltaY / baseScale
+        }));
+        setStartPosition({ x: touch.clientX, y: touch.clientY });
+      } 
+      else if (e.touches.length === 2 && startTouches) {
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const currentDistance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+        const newScale = Math.max(
+          0.5,
+          Math.min(startTouches.scale * (currentDistance / startTouches.distance), 3)
+        );
+        setScale(newScale);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      setStartTouches(null);
+      setStartPosition(null);
+    };
+
+    const handleWheel = (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setScale(prevScale => Math.max(0.5, Math.min(prevScale + delta, 3)));
+      }
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: false });
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [startPosition, startTouches, position, baseScale]);
+
+  const resetZoom = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
+const handleDownloadClick = (forceWatermark = false) => {
+  // Close modal if open
+  setShowWatermarkModal(false);
+
+  // Check if template is selected
+  if (!resumeData?.template) {
+    alert("Please select a template first");
+    return;
+  }
+
+  // If unlocked OR watermark download forced
+  if (isTemplateUnlocked || forceWatermark) {
+    // Scroll to bottom after a short delay to ensure DOM is ready
+    setTimeout(() => {
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: 'smooth'
+      });
+      
+      // Start download after scroll completes
+      setTimeout(handleDownload, 300);
+    }, 100);
+  } else {
+    setShowWatermarkModal(true);
+  }
+};
 
 const handleDownload = async () => {
   if (onPdfStart) onPdfStart();
@@ -155,31 +278,32 @@ const handleDownload = async () => {
   const A4_HEIGHT_MM = 297;
   const PX_PER_MM = 96 / 25.4; // 96dpi conversion
   const A4_WIDTH_PX = A4_WIDTH_MM * PX_PER_MM;
-  const A4_HEIGHT_PX = A4_HEIGHT_MM * PX_PER_MM;
 
   try {
-    const pdf = new jsPDF('p', 'mm', 'a4');
     const name = resumeData?.personal?.name?.replace(/\s+/g, '_') || 'resume';
-
     const resumeElement = resumeContainerRef.current;
+    
+    // Create a deep clone of the element
     const clone = resumeElement.cloneNode(true);
 
-    // Create temporary container with proper styling
+    // Create temporary container with proper styling - USING WORKING EXAMPLE'S STYLING
     const tempContainer = document.createElement('div');
     Object.assign(tempContainer.style, {
       position: 'absolute',
       left: '-9999px',
       width: `${A4_WIDTH_PX}px`,
       backgroundColor: 'white',
-      overflow: 'hidden',
+      overflow: 'visible',  // Changed from 'hidden'
       boxSizing: 'border-box',
       padding: '0',
       margin: '0',
       fontSize: '12pt',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: 'Arial, sans-serif',
+      height: 'auto',      // Added for scrollable content
+      minHeight: '100%'    // Added for scrollable content
     });
 
-    // Create print-specific styles
+    // Create print-specific styles - USING WORKING EXAMPLE'S STYLES
     const printStyles = document.createElement('style');
     printStyles.textContent = `
       * {
@@ -198,73 +322,68 @@ const handleDownload = async () => {
     tempContainer.appendChild(clone);
     document.body.appendChild(tempContainer);
 
-    // Calculate page breaks
-    const pageElements = [];
-    let currentPageHeight = 0;
-    let currentPageElements = [];
-    const nonBreakingElements = clone.querySelectorAll('.page-break-avoid');
+    // CRITICAL FIX: Wait for rendering to complete
+    await new Promise(resolve => {
+      // Double requestAnimationFrame ensures layout completion
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
 
-    const processElement = (el) => {
-      const elHeight = el.offsetHeight;
-      const isNonBreaking = [...nonBreakingElements].includes(el);
-      
-      // Check if element fits or needs to break
-      if (currentPageHeight + elHeight <= A4_HEIGHT_PX || currentPageHeight === 0) {
-        currentPageHeight += elHeight;
-        currentPageElements.push(el);
-      } else {
-        // Finish current page
-        pageElements.push([...currentPageElements]);
-        
-        // Start new page
-        currentPageElements = [el];
-        currentPageHeight = elHeight;
-      }
-    };
-
-    // Process all child elements
-    Array.from(clone.children).forEach(processElement);
+    // Get full content height
+    const fullHeightPx = clone.scrollHeight;
     
-    // Push remaining elements
-    if (currentPageElements.length > 0) {
-      pageElements.push(currentPageElements);
+    // FIX: Validate height before proceeding
+    if (fullHeightPx === 0) {
+      throw new Error('Content height is zero, cannot generate PDF');
     }
 
-    // Generate PDF pages
-    for (let i = 0; i < pageElements.length; i++) {
-      if (i > 0) pdf.addPage();
-      
-      const pageDiv = document.createElement('div');
-      pageDiv.style.width = `${A4_WIDTH_PX}px`;
-      pageDiv.style.height = `${A4_HEIGHT_PX}px`;
-      pageDiv.style.overflow = 'hidden';
-      
-      pageElements[i].forEach(el => pageDiv.appendChild(el.cloneNode(true)));
-      tempContainer.innerHTML = '';
-      tempContainer.appendChild(pageDiv);
+    // CRITICAL FIX: Create a wrapper div with explicit dimensions
+    const contentWrapper = document.createElement('div');
+    Object.assign(contentWrapper.style, {
+      width: `${A4_WIDTH_PX}px`,
+      height: `${fullHeightPx}px`,
+      overflow: 'visible',
+      backgroundColor: 'white'
+    });
+    contentWrapper.appendChild(clone.cloneNode(true));
+    
+    // Replace tempContainer content
+    tempContainer.innerHTML = '';
+    tempContainer.appendChild(contentWrapper);
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+    // Wait for rendering
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-      const canvas = await toPng(pageDiv, {
-        pixelRatio: 3,
-        quality: 1,
-        backgroundColor: 'white',
-        width: A4_WIDTH_PX,
-        height: A4_HEIGHT_PX,
-        cacheBust: true
-      });
+    // Create canvas with full content height
+    const canvas = await toPng(contentWrapper, {
+      pixelRatio: 2,  // Reduced for performance
+      quality: 1,
+      backgroundColor: 'white',
+      width: A4_WIDTH_PX,
+      height: fullHeightPx,
+      cacheBust: true
+    });
 
-      pdf.addImage(
-        canvas, 
-        'PNG', 
-        0, 
-        0, 
-        A4_WIDTH_MM, 
-        A4_HEIGHT_MM,
-        undefined,
-        'FAST'
-      );
-    }
+    // Calculate PDF dimensions
+    const heightInMM = (fullHeightPx * A4_WIDTH_MM) / A4_WIDTH_PX;
+    
+    // Create PDF with dynamic height
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [A4_WIDTH_MM, heightInMM],
+      compress: true
+    });
+
+    pdf.addImage(
+      canvas, 
+      'PNG', 
+      0, 
+      0, 
+      A4_WIDTH_MM, 
+      heightInMM,
+      undefined,
+      'FAST'
+    );
 
     // Cleanup
     document.body.removeChild(tempContainer);
@@ -278,7 +397,7 @@ const handleDownload = async () => {
   }
 };
 
-  const colors = {
+const colors = {
     blue: { primary: '#1e40af', secondary: '#3b82f6', accent: '#60a5fa' },
     green: { primary: '#065f46', secondary: '#059669', accent: '#34d399' },
     dark: { primary: '#0f172a', secondary: '#1e293b', accent: '#334155' },
@@ -288,606 +407,666 @@ const handleDownload = async () => {
     classic: { primary: '#1e293b', secondary: '#334155', accent: '#475569' },
     sidebar: { primary: '#0f172a', secondary: '#1e293b', accent: '#334155' },
     creative: { primary: '#4c1d95', secondary: '#5b21b6', accent: '#7e22ce' }
-  }[resumeData?.template || 'blue'] || {
+}[resumeData?.template || 'blue'] || {
     primary: '#1e40af', secondary: '#3b82f6', accent: '#60a5fa'
-  };
+};
 
-  const getTextColor = (bgColor) => {
+// Calculate appropriate text colors based on background
+const getTextColor = (bgColor) => {
+    if (!bgColor) return '#1e293b'; // Default dark text
+    
     const color = bgColor.replace('#', '');
-    const r = parseInt(color.substr(0, 2), 16);
-    const g = parseInt(color.substr(2, 2), 16);
-    const b = parseInt(color.substr(4, 2), 16);
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    
+    // Calculate relative luminance
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.5 ? '#000000' : '#ffffff';
-  };
+    return luminance > 0.5 ? '#1e293b' : '#f8fafc'; // Dark text on light, light text on dark
+};
 
-  const textColor = getTextColor(colors.primary);
+// Get text colors for all sections
+const textColor = {
+    primary: getTextColor(colors.primary),
+    secondary: getTextColor(colors.secondary),
+    accent: getTextColor(colors.accent),
+    body: getTextColor('#ffffff'), // For white backgrounds
+    darkBody: getTextColor(colors.secondary) // For dark backgrounds
+};
 
+// Improved Watermark with adaptive color
 const Watermark = ({ text = 'FREE WILL TECHNOLOGIES', unlockedTemplates = [], templateId }) => {
-  if (!templateId) return null;
-  
-  // Check if this specific template is unlocked
-  const isUnlocked = unlockedTemplates.includes(templateId);
-  
-  if (isUnlocked) {
-    return null; // Template is unlocked → no watermark
-  }
+    if (!templateId) return null;
+    const isUnlocked = unlockedTemplates.includes(templateId);
+    if (isUnlocked) return null; 
 
+    return (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+            <div
+                className="text-[2.5rem] md:text-[5rem] font-extrabold text-gray-300 opacity-60 transform rotate-45 select-none"
+                style={{
+                    textShadow: '2px 2px 8px rgba(255,255,255,0.7), -2px -2px 8px rgba(0,0,0,0.5)',
+                    whiteSpace: 'nowrap',
+                    fontSize: window.innerWidth < 768 ? '3.5rem' : undefined,
+                }}
+            >
+                {text.trim()}
+            </div>
+        </div>
+    );
+};
+
+// Render contact item with adaptive colors
+const renderContactItem = (icon, value, horizontal = false) => {
+  if (!value) return null;
+  
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-      <div
-        className="text-[2.5rem] md:text-[5rem] font-extrabold text-gray-300 opacity-60 transform rotate-45 select-none"
-        style={{
-          textShadow: '2px 2px 8px rgba(255,255,255,0.7), -2px -2px 8px rgba(0,0,0,0.5)',
-          whiteSpace: 'nowrap',
-          fontSize: window.innerWidth < 768 ? '3.5rem' : undefined,
-        }}
-      >
-        {text.trim()}
-      </div>
+    <div className={`flex items-center ${horizontal ? 'mr-4' : 'mb-2'}`}>
+      <span className="mr-2" style={{ color: colors.primary }}>
+        {icon}
+      </span>
+      {value.includes('http') ? (
+        <a 
+          href={value} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-sm text-gray-700 hover:underline"
+        >
+          {value.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+        </a>
+      ) : (
+        <span className="text-sm text-gray-700">{value}</span>
+      )}
     </div>
   );
 };
 
-  const renderContactItem = (icon, value, link) => (
-    value ? (
-      <motion.div
-        className="flex items-center mb-2 break-words"
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="icon-container flex-shrink-0">{icon}</div>
-        {link ? (
-          <a href={link.startsWith('http') ? link : `https://${link}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-300 hover:underline transition-all break-all">
-            {value}
-          </a>
-        ) : (
-          <span className="text-gray-300 break-all">{value}</span>
-        )}
-      </motion.div>
-    ) : null
-  );
-
-  const renderSkills = (skills) => (
-    <div className="space-y-3">
-      {skills.map((skill, idx) => (
-        <motion.div
-          key={idx}
-          className="skill-item"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: idx * 0.05 }}
-        >
-          <div className="flex justify-between mb-1">
-            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-              {typeof skill === 'object' && skill !== null ? skill.name : skill}
-            </span>
-            <span className="text-xs text-gray-600 dark:text-gray-400">{skill.level || 'Expert'}</span>
-          </div>
-          <div className="h-1.5 w-full bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-blue-500 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${skill.levelValue || 90}%` }}
-              transition={{ duration: 1, delay: idx * 0.1 }}
-            />
-          </div>
-        </motion.div>
-      ))}
-    </div>
-  );
-
-  const renderTechnologyTags = (technologies) => {
+const renderTechnologyTags = (technologies) => {
     if (!technologies) return null;
     
     let techList = [];
     if (Array.isArray(technologies)) {
-      techList = technologies.map(t => {
-        if (typeof t === 'string') return t;
-        if (t && t.name) return t.name;
-        return String(t);
-      });
+        techList = technologies.map(t => {
+            if (typeof t === 'string') return t;
+            if (t && t.name) return t.name;
+            return String(t);
+        });
     } else if (typeof technologies === 'string') {
-      techList = technologies.split(',').map(t => t.trim());
+        techList = technologies.split(',').map(t => t.trim());
     } else {
-      return null;
+        return null;
     }
 
     return (
-      <div className="flex flex-wrap gap-2 mt-1">
-        {techList.map((tech, idx) => (
-          <span key={idx} className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
-            {tech}
-          </span>
-        ))}
-      </div>
+        <div className="flex flex-wrap gap-2 mt-1">
+            {techList.map((tech, idx) => (
+                <span key={idx} className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                    {tech}
+                </span>
+            ))}
+        </div>
     );
-  };
+};
 
-  const renderContactSection = () => {
+const renderPagination = () => {
+    if (totalPages > 1) {
+        return (
+            <div className="flex justify-center items-center mt-4 space-x-4">
+                <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="flex items-center px-3 py-1 bg-gray-200 rounded-md disabled:opacity-50"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Previous
+                </button>
+                <span className="text-sm font-medium">
+                    Page {currentPage} of {totalPages}
+                </span>
+                <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center px-3 py-1 bg-gray-200 rounded-md disabled:opacity-50"
+                >
+                    Next
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+        );
+    }
+    return null;
+};
+
+const renderContactSection = () => {
     const contactItems = [
-      { icon: icons.email, value: resumeData?.personal?.email },
-      { icon: icons.phone, value: resumeData?.personal?.phone },
-      { icon: icons.location, value: resumeData?.personal?.location },
-      { icon: icons.linkedin, value: resumeData?.personal?.linkedin, link: resumeData?.personal?.linkedin },
-      { icon: icons.github, value: resumeData?.personal?.github, link: resumeData?.personal?.github },
-      { icon: icons.website, value: resumeData?.personal?.website, link: resumeData?.personal?.website },
+        { icon: icons.email, value: resumeData?.personal?.email },
+        { icon: icons.phone, value: resumeData?.personal?.phone },
+        { icon: icons.location, value: resumeData?.personal?.location },
+        { icon: icons.linkedin, value: resumeData?.personal?.linkedin, link: resumeData?.personal?.linkedin },
+        { icon: icons.github, value: resumeData?.personal?.github, link: resumeData?.personal?.github },
+        { icon: icons.website, value: resumeData?.personal?.website, link: resumeData?.personal?.website },
     ].filter(item => item.value);
 
     if (contactItems.length === 0) return null;
 
     return (
-      <div className="space-y-4 mb-6 text-sm">
-        <h2 className="font-bold text-lg mb-3 border-b pb-2">Contact</h2>
-        {contactItems.map((item, index) => (
-          <div key={index}>
-            {renderContactItem(item.icon, item.value, item.link)}
-          </div>
-        ))}
-      </div>
+        <div className="space-y-4 mb-6 text-sm">
+            <h2 className="font-bold text-lg mb-3 border-b pb-2">Contact</h2>
+            {contactItems.map((item, index) => (
+                <div key={index}>
+                    {renderContactItem(item.icon, item.value, item.link)}
+                </div>
+            ))}
+        </div>
     );
-  };
+};
 
-  const getSkillName = (skill) => {
+const getStringValue = (skill) => {
     if (typeof skill === 'string') return skill;
     if (skill && skill.name) return skill.name;
     return '';
-  };
+};
 
-  const renderSkillsSection = () => (
-    <div>
-      {resumeData?.softSkills?.length > 0 && (
-        <div className="mb-4">
-          <h2 className="font-bold text-lg mb-2">Soft Skills</h2>
-          <div className="flex flex-wrap gap-2">
-            {resumeData.softSkills.map((skill, idx) => (
-              <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
-                {getSkillName(skill)}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {resumeData?.programmingSkills?.length > 0 && (
-        <div className="mb-4">
-          <h2 className="font-bold text-lg mb-2">Programming Skills</h2>
-          <div className="flex flex-wrap gap-2">
-            {resumeData.programmingSkills.map((skill, idx) => (
-              <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
-                {getSkillName(skill)}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {resumeData?.frameworks?.length > 0 && (
-        <div className="mb-4">
-          <h2 className="font-bold text-lg mb-2">Frameworks</h2>
-          <div className="flex flex-wrap gap-2">
-            {resumeData.frameworks.map((skill, idx) => (
-              <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
-                {getSkillName(skill)}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {resumeData?.languages?.length > 0 && (
-        <div className="mb-4">
-          <h2 className="font-bold text-lg mb-2">Languages</h2>
-          <div className="flex flex-wrap gap-2">
-            {resumeData.languages.map((lang, idx) => {
-              const langName = getSkillName(lang);
-              return (
-                <span
-                  key={idx}
-                  className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium"
-                >
-                  {langName}{lang.level ? ` (${lang.level})` : ''}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {resumeData?.certifications?.length > 0 && (
-        <div className="mb-4">
-          <h2 className="font-bold text-lg mb-2">Certifications</h2>
-          <div className="flex flex-wrap gap-2">
-            {resumeData.certifications.map((cert, idx) => {
-              const certName = getSkillName(cert);
-              return (
-                <span key={idx} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
-                  {certName}{cert.issuer ? ` (${cert.issuer})` : ''}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderHobbiesSection = () => {
-    if (!resumeData?.hobbies || resumeData.hobbies.length === 0) return null;
-    
-    const getHobbyName = (hobby) => {
-      if (typeof hobby === 'string') return hobby;
-      if (hobby && hobby.name) return hobby.name;
-      return '';
-    };
-    
-    return (
+const renderSkillsSection = () => (
+  <div>
+    {resumeData?.softSkills?.length > 0 && (
       <div className="mb-4">
-        <h2 className="font-bold text-lg mb-2 flex items-center">
-          <div className="mr-2" style={{ color: colors.primary }}>
-            {icons.hobbies}
-          </div>
-          Hobbies
-        </h2>
+        <h2 className="font-bold text-lg mb-2">Soft Skills</h2>
         <div className="flex flex-wrap gap-2">
-          {resumeData.hobbies.map((hobby, idx) => (
+          {resumeData.softSkills.map((skill, idx) => (
             <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
-              {getHobbyName(hobby)}
+              {getStringValue(skill)}
             </span>
           ))}
         </div>
       </div>
-    );
-  };
+    )}
 
-  const renderResumeLayout = () => {
+        {resumeData?.programmingSkills?.length > 0 && (
+            <div className="mb-4">
+                <h2 className="font-bold text-lg mb-2">Programming Skills</h2>
+                <div className="flex flex-wrap gap-2">
+                    {resumeData.programmingSkills.map((skill, idx) => (
+                        <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
+                            {getStringValue(skill)}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {resumeData?.frameworks?.length > 0 && (
+            <div className="mb-4">
+                <h2 className="font-bold text-lg mb-2">Frameworks</h2>
+                <div className="flex flex-wrap gap-2">
+                    {resumeData.frameworks.map((skill, idx) => (
+                        <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
+                            {getStringValue(skill)}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {resumeData?.languages?.length > 0 && (
+            <div className="mb-4">
+                <h2 className="font-bold text-lg mb-2">Languages</h2>
+                <div className="flex flex-wrap gap-2">
+                    {resumeData.languages.map((lang, idx) => {
+                        const langName = getStringValue(lang);
+                        return (
+                            <span
+                                key={idx}
+                                className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium"
+                            >
+                                {langName}{lang.level ? ` (${lang.level})` : ''}
+                            </span>
+                        );
+                    })}
+                </div>
+            </div>
+        )}
+
+        {resumeData?.certifications?.length > 0 && (
+            <div className="mb-4">
+                <h2 className="font-bold text-lg mb-2">Certifications</h2>
+                <div className="flex flex-wrap gap-2">
+                    {resumeData.certifications.map((cert, idx) => {
+                        const certName = getStringValue(cert);
+                        return (
+                            <span key={idx} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
+                                {certName}{cert.issuer ? ` (${cert.issuer})` : ''}
+                            </span>
+                        );
+                    })}
+                </div>
+            </div>
+        )}
+    </div>
+);
+
+const renderHobbiesSection = () => {
+    if (!resumeData?.hobbies || resumeData.hobbies.length === 0) return null;
+    
+    const getHobbyName = (hobby) => {
+        if (typeof hobby === 'string') return hobby;
+        if (hobby && hobby.name) return hobby.name;
+        return '';
+    };
+    
+    return (
+        <div className="mb-4">
+            <h2 className="font-bold text-lg mb-2 flex items-center">
+                <div className="mr-2" style={{ color: colors.primary }}>
+                    {icons.hobbies}
+                </div>
+                Hobbies
+            </h2>
+            <div className="flex flex-wrap gap-2">
+                {resumeData.hobbies.map((hobby, idx) => (
+                    <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
+                        {getHobbyName(hobby)}
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const renderResumeLayout = () => {
     switch (resumeData?.template || 'blue') {
-      case 'blue': return renderModernBlueLayout();
-      case 'green': return renderEcoGreenLayout();
-      case 'dark-pro': return renderProfessionalDarkTemplate();
-      case 'red': return renderBoldRedLayout();
-      case 'teal': return renderProfessionalTealLayout();
-      case 'minimal': return renderMinimalistLayout();
-      case 'classic': return renderClassicLayout();
-      case 'sidebar': return renderSidebarLayout();
-      case 'creative': return renderCreativeLayout();
-      case 'compact': return renderCompactLayout();
-      default: return renderModernBlueLayout();
+        case 'blue': return renderModernBlueLayout();
+        case 'green': return renderEcoGreenLayout();
+        case 'elegant-white': return renderElegantWhiteTemplate();
+        case 'red': return renderBoldRedLayout();
+        case 'teal': return renderProfessionalTealLayout();
+        case 'minimal': return renderMinimalistLayout();
+        case 'classic': return renderClassicLayout();
+        case 'sidebar': return renderSidebarLayout();
+        case 'creative': return renderCreativeLayout();
+        case 'compact': return renderCompactLayout();
+        case 'professional-classic': return renderProfessionalClassicLayout();
+        case 'modern-tech': return renderModernTechLayout();
+        default: return renderModernBlueLayout();
     }
-  };
+};
 
 const renderModernBlueLayout = () => (
-  <div className="resume-content flex flex-col min-h-[297mm] relative">
-    <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
-    
-    <motion.div className="p-4 text-center section-padding relative z-10"
-      style={{ backgroundColor: colors.primary, color: textColor }}>
-      <h1 className="text-2xl md:text-3xl font-bold mb-1">
-        {resumeData?.personal?.name || 'Your Name'}
-      </h1>
-      <p className="text-base md:text-lg">
-        {resumeData?.personal?.title || 'Professional Title'}
-      </p>
-    </motion.div>
+    <div className="resume-content flex flex-col min-h-[297mm] relative">
+        <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
 
-    <div className="flex flex-row flex-1 relative z-10">
-      <div className="w-1/3 p-4 section-padding"
-        style={{ backgroundColor: colors.secondary, color: textColor }}>
-        {renderContactSection()}
-        {renderSkillsSection()}
-        {renderHobbiesSection()}
-      </div>
+        <motion.div className="p-4 text-center section-padding relative z-10"
+            style={{ backgroundColor: colors.primary, color: textColor.primary }}>
+            <h1 className="text-2xl md:text-3xl font-bold mb-1">
+                {resumeData?.personal?.name || 'Your Name'}
+            </h1>
+            <p className="text-base md:text-lg">
+                {resumeData?.personal?.title || 'Professional Title'}
+            </p>
+        </motion.div>
 
-      <div className="w-2/3 p-4 section-padding">
-        {resumeData?.personal?.summary && (
-          <div className="mb-6">
-            <h2 className="font-bold text-lg mb-3 border-b pb-2">Summary</h2>
-            <p className="text-sm">{resumeData.personal.summary}</p>
-          </div>
-        )}
-
-        {resumeData?.experience?.length > 0 && (
-          <div className="mb-8">
-            <h2 className="font-bold text-lg mb-4 flex items-center pb-2 border-b" style={{ borderColor: colors.primary }}>
-              <div className="mr-2 mt-0.5" style={{ color: colors.primary }}>
-                {icons.briefcase}
-              </div>
-              {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
-            </h2>
-            <div className="space-y-4">
-              {resumeData.experience.map((exp, index) => (
-                <div key={index} className="pl-2">
-                  <div className="flex flex-col md:flex-row justify-between items-baseline">
-                    <div className="flex items-center">
-                      <h3 className="font-bold text-gray-800">{exp.position || 'Position'}</h3>
-                    </div>
-                    <span className="text-gray-600 text-sm mt-1 md:mt-0">{exp.duration || 'Duration'}</span>
-                  </div>
-                  <div className="font-semibold mb-1" style={{ color: colors.primary }}>
-                    {exp.company || 'Company'}
-                  </div>
-                  <p className="text-gray-700 text-sm">
-                    {exp.responsibilities || 'Responsibilities and achievements...'}
-                  </p>
-                  {exp.technologies && (
-                    <div className="mt-2">
-                      <span className="font-medium">Technologies: </span>
-                      {renderTechnologyTags(exp.technologies)}
-                    </div>
-                  )}
-                </div>
-              ))}
+        <div className="flex flex-row flex-1 relative z-10">
+            <div className="w-1/3 p-4 section-padding"
+                style={{ backgroundColor: colors.secondary, color: textColor.secondary }}>
+                {renderContactSection()}
+                {renderSkillsSection()}
+                {renderHobbiesSection()}
             </div>
-          </div>
-        )}
 
-        {resumeData?.education?.length > 0 && (
-          <div className="mb-8">
-            <h2 className="font-bold text-lg mb-4 flex items-center pb-2 border-b" style={{ borderColor: colors.primary }}>
-              <div className="mr-2" style={{ color: colors.primary }}>
-                {icons.education}
-              </div>
-              Education
-            </h2>
-            <div className="space-y-4">
-              {resumeData.education.map((edu, index) => (
-                <div key={index} className="pl-2">
-                  <div className="flex flex-col md:flex-row justify-between items-baseline">
-                    <h3 className="font-bold text-gray-800">{edu.degree || 'Degree'}</h3>
-                    <span className="text-gray-600 text-sm mt-1 md:mt-0">{edu.duration || 'Year'}</span>
-                  </div>
-                  <div className="font-semibold mb-1" style={{ color: colors.primary }}>
-                    {edu.institution || 'Institution'}
-                  </div>
-                  <p className="text-gray-700 text-sm">
-                    {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
-                  </p>
-                  {edu.school && <p className="text-gray-700 text-sm">School: {edu.school}</p>}
-                  {edu.achievements && <p className="text-gray-700 text-sm">Achievements: {edu.achievements}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {resumeData?.projects?.length > 0 && (
-          <div>
-            <h2 className="font-bold text-lg mb-4 flex items-center pb-2 border-b" style={{ borderColor: colors.primary }}>
-              <div className="mr-2" style={{ color: colors.primary }}>
-                {icons.project}
-              </div>
-              Projects
-            </h2>
-            <div className="space-y-4">
-              {resumeData.projects.map((project, index) => (
-                <div key={index} className="pl-2">
-                  <h3 className="font-bold text-gray-800">
-                    {project.link ? (
-                      <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {project.title || 'Project Name'}
-                      </a>
-                    ) : project.title || 'Project Name'}
-                  </h3>
-                  <p className="text-gray-700 text-sm">
-                    {project.description || 'Project description...'}
-                  </p>
-                  {project.technologies && (
-                    <div className="mt-2">
-                      <span className="font-medium">Technologies: </span>
-                      {renderTechnologyTags(project.technologies)}
+            <div className="w-2/3 p-4 section-padding" style={{ color: textColor.body }}>
+                {resumeData?.personal?.summary && (
+                    <div className="mb-6">
+                        <h2 className="font-bold text-lg mb-3 border-b pb-2">Summary</h2>
+                        <p className="text-sm">{resumeData.personal.summary}</p>
                     </div>
-                  )}
-                </div>
-              ))}
+                )}
+
+                {resumeData?.experience?.length > 0 && (
+                    <div className="mb-8">
+                        <h2 className="font-bold text-lg mb-4 flex items-center pb-2 border-b" style={{ borderColor: colors.primary }}>
+                            <div className="mr-2 mt-0.5" style={{ color: colors.primary }}>
+                                {icons.briefcase}
+                            </div>
+                            {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                        </h2>
+                        <div className="space-y-4">
+                            {resumeData.experience.map((exp, index) => (
+                                <div key={index} className="pl-2">
+                                    <div className="flex flex-col md:flex-row justify-between items-baseline">
+                                        <div className="flex items-center">
+                                            <h3 className="font-bold">{exp.position || 'Position'}</h3>
+                                        </div>
+                                        <span className="text-sm mt-1 md:mt-0">{exp.duration || 'Duration'}</span>
+                                    </div>
+                                    <div className="font-semibold mb-1" style={{ color: colors.primary }}>
+                                        {exp.company || 'Company'}
+                                    </div>
+                                    <p className="text-sm">
+                                        {exp.responsibilities || 'Responsibilities and achievements...'}
+                                    </p>
+                                    {exp.technologies && (
+                                        <div className="mt-2">
+                                            <span className="font-medium">Technologies: </span>
+                                            {renderTechnologyTags(exp.technologies)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {resumeData?.education?.length > 0 && (
+                    <div className="mb-8">
+                        <h2 className="font-bold text-lg mb-4 flex items-center pb-2 border-b" style={{ borderColor: colors.primary }}>
+                            <div className="mr-2" style={{ color: colors.primary }}>
+                                {icons.education}
+                            </div>
+                            Education
+                        </h2>
+                        <div className="space-y-4">
+                            {resumeData.education.map((edu, index) => (
+                                <div key={index} className="pl-2">
+                                    <div className="flex flex-col md:flex-row justify-between items-baseline">
+                                        <h3 className="font-bold">{edu.degree || 'Degree'}</h3>
+                                        <span className="text-sm mt-1 md:mt-0">{edu.duration || 'Year'}</span>
+                                    </div>
+                                    <div className="font-semibold mb-1" style={{ color: colors.primary }}>
+                                        {edu.institution || 'Institution'}
+                                    </div>
+                                    <p className="text-sm">
+                                        {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
+                                    </p>
+                                    {edu.school && <p className="text-sm">School: {edu.school}</p>}
+                                    {edu.achievements && <p className="text-sm">Achievements: {edu.achievements}</p>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {resumeData?.projects?.length > 0 && (
+                    <div>
+                        <h2 className="font-bold text-lg mb-4 flex items-center pb-2 border-b" style={{ borderColor: colors.primary }}>
+                            <div className="mr-2" style={{ color: colors.primary }}>
+                                {icons.project}
+                            </div>
+                            Projects
+                        </h2>
+                        <div className="space-y-4">
+                            {resumeData.projects.map((project, index) => (
+                                <div key={index} className="pl-2">
+                                    <h3 className="font-bold">
+                                        {project.link ? (
+                                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                                {project.title || 'Project Name'}
+                                            </a>
+                                        ) : project.title || 'Project Name'}
+                                    </h3>
+                                    <p className="text-sm">
+                                        {project.description || 'Project description...'}
+                                    </p>
+                                    {project.technologies && (
+                                        <div className="mt-2">
+                                            <span className="font-medium">Technologies: </span>
+                                            {renderTechnologyTags(project.technologies)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
-          </div>
-        )}
-      </div>
+        </div>
     </div>
-  </div>
 );
 
 const renderEcoGreenLayout = () => (
-  <div className="resume-content relative overflow-hidden min-h-[297mm]">
-    <Watermark unlockedTemplates={unlockedTemplates} templateId={resumeData?.template} />
+    <div className="resume-content relative overflow-hidden min-h-[297mm]">
+        <Watermark unlockedTemplates={unlockedTemplates} templateId={resumeData?.template} />
 
-    {/* Background gradient */}
-    <div className="absolute inset-0 z-0" style={{
-      background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primary} 50%, ${colors.secondary} 50%, ${colors.secondary} 100%)`,
-    }}></div>
+        {/* Background gradient */}
+        <div className="absolute inset-0 z-0" style={{
+            background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primary} 50%, ${colors.secondary} 50%, ${colors.secondary} 100%)`,
+        }}></div>
 
-    <div className="relative z-20">
-      <motion.div className="p-6 text-center" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-        <h1 className="text-3xl font-bold mb-1" style={{ color: textColor }}>
-          {resumeData?.personal?.name || 'Your Name'}
-        </h1>
-        <p className="text-xl" style={{ color: textColor }}>
-          {resumeData?.personal?.title || 'Professional Title'}
-        </p>
-      </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
-        {/* LEFT COLUMN */}
-        <div className="space-y-6">
-          {/* About Me */}
-          <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-            <h2 className="font-bold text-lg mb-3 flex items-center">
-              <div className="mr-2" style={{ color: colors.primary }}>{icons.user}</div> About Me
-            </h2>
-            <p className="text-gray-700 text-sm">{resumeData?.personal?.summary || 'Professional summary...'}</p>
-          </motion.div>
-
-          {/* Skills */}
-          <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-            <h2 className="font-bold text-lg mb-3 flex items-center">
-              <div className="mr-2" style={{ color: colors.primary }}>{icons.skills}</div> Skills
-            </h2>
-            <div className="space-y-3">{renderSkillsSection()}</div>
-          </motion.div>
-
-          {/* Education */}
-          {resumeData?.education?.length > 0 && (
-            <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
-              <h2 className="font-bold text-lg mb-3 flex items-center">
-                <div className="mr-2" style={{ color: colors.primary }}>{icons.education}</div> Education
-              </h2>
-              <div className="space-y-4">
-                {resumeData.education.map((edu, index) => (
-                  <div key={index} className="mb-3">
-                    <div className="flex justify-between">
-                      <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
-                      <span className="text-gray-600 text-xs">{edu.duration || 'Year'}</span>
-                    </div>
-                    <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                      {edu.institution || 'Institution'}
-                    </div>
-                    {edu.school && <p className="text-white text-xs">School: {edu.school}</p>}
-                    {edu.field && (
-                      <p className="text-white text-xs">
-                        {edu.field} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
-                      </p>
-                    )}
-                    {edu.achievements && <p className="text-white text-xs mt-1">Achievements: {edu.achievements}</p>}
-                  </div>
-                ))}
-              </div>
+        <div className="relative z-20">
+            <motion.div className="p-6 text-center" 
+                style={{ backgroundColor: colors.primary, color: textColor.primary }}
+                initial={{ opacity: 0, y: -20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                transition={{ duration: 0.5 }}>
+                <h1 className="text-3xl font-bold mb-1">
+                    {resumeData?.personal?.name || 'Your Name'}
+                </h1>
+                <p className="text-xl">
+                    {resumeData?.personal?.title || 'Professional Title'}
+                </p>
             </motion.div>
-          )}
 
-          {renderHobbiesSection()}
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
+                {/* LEFT COLUMN */}
+                <div className="space-y-6">
+                    {/* About Me */}
+                    <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" 
+                        style={{ color: textColor.body }}
+                        initial={{ opacity: 0, x: -20 }} 
+                        animate={{ opacity: 1, x: 0 }} 
+                        transition={{ delay: 0.2 }}>
+                        <h2 className="font-bold text-lg mb-3 flex items-center">
+                            <div className="mr-2" style={{ color: colors.primary }}>{icons.user}</div> About Me
+                        </h2>
+                        <p className="text-sm">{resumeData?.personal?.summary || 'Professional summary...'}</p>
+                    </motion.div>
 
-        {/* RIGHT COLUMN */}
-        <div className="space-y-6">
-          {/* Contact */}
-          <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-            <h2 className="font-bold text-lg mb-3 flex items-center">
-              <div className="mr-2" style={{ color: colors.primary }}>{icons.email}</div> Contact
-            </h2>
-            <div className="space-y-3">
-              {renderContactItem(icons.email, resumeData?.personal?.email, `mailto:${resumeData?.personal?.email}`)}
-              {renderContactItem(icons.phone, resumeData?.personal?.phone)}
-              {renderContactItem(icons.location, resumeData?.personal?.location)}
-              {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin, resumeData?.personal?.linkedin)}
-              {renderContactItem(icons.github, resumeData?.personal?.github, resumeData?.personal?.github)}
-              {renderContactItem(icons.website, resumeData?.personal?.website, resumeData?.personal?.website)}
-            </div>
-          </motion.div>
+                    {/* Skills */}
+                    <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" 
+                        style={{ color: textColor.body }}
+                        initial={{ opacity: 0, x: -20 }} 
+                        animate={{ opacity: 1, x: 0 }} 
+                        transition={{ delay: 0.3 }}>
+                        <h2 className="font-bold text-lg mb-3 flex items-center">
+                            <div className="mr-2" style={{ color: colors.primary }}>{icons.skills}</div> Skills
+                        </h2>
+                        <div className="space-y-3">{renderSkillsSection()}</div>
+                    </motion.div>
 
-          {/* Experience */}
-          {resumeData?.experience?.length > 0 && (
-            <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
-              <h2 className="font-bold text-lg mb-3 flex items-center">
-                <div className="mr-2" style={{ color: colors.primary }}>{icons.briefcase}</div>
-                {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
-              </h2>
-              <div className="space-y-4">
-                {resumeData.experience.map((exp, index) => (
-                  <div key={index} className="mb-3">
-                    <div className="flex justify-between">
-                      <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
-                      <span className="text-gray-600 text-xs">{exp.duration || 'Duration'}</span>
-                    </div>
-                    <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                      {exp.company || 'Company'}
-                    </div>
-                    <p className="text-gray-700 text-xs">{exp.responsibilities || 'Responsibilities and achievements...'}</p>
-                    {exp.technologies && (
-                      <div className="mt-1">
-                        <span className="font-medium text-xs">Technologies: </span>
-                        {renderTechnologyTags(exp.technologies)}
-                      </div>
+                    {/* Education */}
+                    {resumeData?.education?.length > 0 && (
+                        <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" 
+                            style={{ color: textColor.body }}
+                            initial={{ opacity: 0, x: -20 }} 
+                            animate={{ opacity: 1, x: 0 }} 
+                            transition={{ delay: 0.4 }}>
+                            <h2 className="font-bold text-lg mb-3 flex items-center">
+                                <div className="mr-2" style={{ color: colors.primary }}>{icons.education}</div> Education
+                            </h2>
+                            <div className="space-y-4">
+                                {resumeData.education.map((edu, index) => (
+                                    <div key={index} className="mb-3">
+                                        <div className="flex justify-between">
+                                            <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
+                                            <span className="text-sm">{edu.duration || 'Year'}</span>
+                                        </div>
+                                        <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                            {edu.institution || 'Institution'}
+                                        </div>
+                                        {edu.school && <p className="text-xs">School: {edu.school}</p>}
+                                        {edu.field && (
+                                            <p className="text-xs">
+                                                {edu.field} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
+                                            </p>
+                                        )}
+                                        {edu.achievements && <p className="text-xs mt-1">Achievements: {edu.achievements}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
                     )}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
 
-          {/* Projects */}
-          {resumeData?.projects?.length > 0 && (
-            <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
-              <h2 className="font-bold text-lg mb-3 flex items-center">
-                <div className="mr-2" style={{ color: colors.primary }}>{icons.project}</div> Projects
-              </h2>
-              <div className="space-y-4">
-                {resumeData.projects.map((project, index) => (
-                  <div key={index} className="mb-3">
-                    <h3 className="font-bold text-sm text-green-800">
-                      {project.link ? (
-                        <a href={project.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                          {project.title}
-                        </a>
-                      ) : project.title}
-                    </h3>
-                    <p className="text-gray-700 text-xs">{project.description}</p>
-                    {project.technologies && (
-                      <div className="mt-2">
-                        <span className="font-medium text-sm">Technologies: </span>
-                        {renderTechnologyTags(project.technologies)}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </div>
+                    {/* Hobbies */}
+{resumeData?.hobbies?.length > 0 && (
+  <motion.div
+    className="p-4 rounded-lg bg-white bg-opacity-90 shadow"
+    style={{ color: textColor.body }}
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ delay: 0.4 }}
+  >
+    <h2 className="font-bold text-lg mb-3 flex items-center">
+      <div className="mr-2" style={{ color: colors.primary }}>
+        {icons.hobbies}
       </div>
+      Interests
+    </h2>
+    <div className="space-y-2">
+      {resumeData.hobbies.map((hobby, index) => (
+        <div key={index} className="text-sm">
+          {typeof hobby === 'object' ? hobby.name : hobby}
+        </div>
+      ))}
     </div>
-  </div>
+  </motion.div>
+)}
+                </div>
+
+                {/* RIGHT COLUMN */}
+                <div className="space-y-6">
+                    {/* Contact */}
+                    <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" 
+                        style={{ color: textColor.body }}
+                        initial={{ opacity: 0, x: 20 }} 
+                        animate={{ opacity: 1, x: 0 }} 
+                        transition={{ delay: 0.3 }}>
+                        <h2 className="font-bold text-lg mb-3 flex items-center">
+                            <div className="mr-2" style={{ color: colors.primary }}>{icons.email}</div> Contact
+                        </h2>
+                        <div className="space-y-3">
+                            {renderContactItem(icons.email, resumeData?.personal?.email, `mailto:${resumeData?.personal?.email}`)}
+                            {renderContactItem(icons.phone, resumeData?.personal?.phone)}
+                            {renderContactItem(icons.location, resumeData?.personal?.location)}
+                            {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin, resumeData?.personal?.linkedin)}
+                            {renderContactItem(icons.github, resumeData?.personal?.github, resumeData?.personal?.github)}
+                            {renderContactItem(icons.website, resumeData?.personal?.website, resumeData?.personal?.website)}
+                        </div>
+                    </motion.div>
+
+                    {/* Experience */}
+                    {resumeData?.experience?.length > 0 && (
+                        <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" 
+                            style={{ color: textColor.body }}
+                            initial={{ opacity: 0, x: 20 }} 
+                            animate={{ opacity: 1, x: 0 }} 
+                            transition={{ delay: 0.4 }}>
+                            <h2 className="font-bold text-lg mb-3 flex items-center">
+                                <div className="mr-2" style={{ color: colors.primary }}>{icons.briefcase}</div>
+                                {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                            </h2>
+                            <div className="space-y-4">
+                                {resumeData.experience.map((exp, index) => (
+                                    <div key={index} className="mb-3">
+                                        <div className="flex justify-between">
+                                            <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
+                                            <span className="text-sm">{exp.duration || 'Duration'}</span>
+                                        </div>
+                                        <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                            {exp.company || 'Company'}
+                                        </div>
+                                        <p className="text-xs">{exp.responsibilities || 'Responsibilities and achievements...'}</p>
+                                        {exp.technologies && (
+                                            <div className="mt-1">
+                                                <span className="font-medium text-xs">Technologies: </span>
+                                                {renderTechnologyTags(exp.technologies)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* Projects */}
+                    {resumeData?.projects?.length > 0 && (
+                        <motion.div className="p-4 rounded-lg bg-white bg-opacity-90 shadow" 
+                            style={{ color: textColor.body }}
+                            initial={{ opacity: 0, x: 20 }} 
+                            animate={{ opacity: 1, x: 0 }} 
+                            transition={{ delay: 0.5 }}>
+                            <h2 className="font-bold text-lg mb-3 flex items-center">
+                                <div className="mr-2" style={{ color: colors.primary }}>{icons.project}</div> Projects
+                            </h2>
+                            <div className="space-y-4">
+                                {resumeData.projects.map((project, index) => (
+                                    <div key={index} className="mb-3">
+                                        <h3 className="font-bold text-sm" style={{ color: colors.primary }}>
+                                            {project.link ? (
+                                                <a href={project.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                                    {project.title}
+                                                </a>
+                                            ) : project.title}
+                                        </h3>
+                                        <p className="text-xs">{project.description}</p>
+                                        {project.technologies && (
+                                            <div className="mt-2">
+                                                <span className="font-medium text-sm">Technologies: </span>
+                                                {renderTechnologyTags(project.technologies)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
 );
 
-
- const renderProfessionalDarkTemplate = () => (
-  <div className="bg-gray-900 text-white font-sans min-h-screen relative overflow-hidden">
-    <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
+const renderElegantWhiteTemplate = () => (
+  <div className="bg-white text-gray-800 font-sans min-h-screen relative overflow-hidden">
+    <Watermark unlockedTemplates={unlockedTemplates} templateId={resumeData?.template} />
 
     <div className="max-w-5xl mx-auto p-5 relative z-10">
-      {/* Header */}
-      <div className="relative mb-12">
-        <div className="bg-gradient-to-r from-[#1e293b] to-[#0f172a] p-8 md:p-10 relative overflow-hidden">
-          <div
-            className="absolute top-0 right-0 w-0 h-0 border-t-[100px] border-l-[100px] border-l-transparent"
-            style={{ borderTopColor: colors.primary, borderTopWidth: 100, borderLeftWidth: 100 }}
-          ></div>
+      {/* Enhanced Header */}
+      <div className="relative mb-10">
+        <div className="bg-white p-8 md:p-10 relative overflow-hidden border-b-2" style={{ borderColor: colors.primary }}>
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-6 md:mb-0">
-              <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-                {resumeData?.personal?.name || 'Your Name'}
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1 tracking-tight">
+                {typeof resumeData?.personal?.name === 'object' ? resumeData.personal.name.name : resumeData?.personal?.name || 'Your Name'}
               </h1>
-              <p className="text-xl text-blue-300">
-                {resumeData?.personal?.title || 'Professional Title'}
+              <p className="text-xl text-gray-700 mt-2 font-medium">
+                {typeof resumeData?.personal?.title === 'object' ? resumeData.personal.title.name : resumeData?.personal?.title || 'Professional Title'}
               </p>
             </div>
-            <div className="bg-gray-800 p-3 rounded-full shadow-lg" />
           </div>
         </div>
-        <div className="h-6 bg-gradient-to-r from-[#2563eb] via-[#1e293b] to-[#2563eb] transform -skew-y-3 -mt-3 shadow-lg"></div>
       </div>
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left */}
+        {/* Left Column */}
         <div className="lg:col-span-1 space-y-8">
-         {/* Contact */}
-<div className="bg-gray-800 rounded-xl p-6 shadow-lg border-l-4" style={{ borderColor: colors.primary }}>
-  <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: colors.primary }}>
-    <span className="p-2 rounded-md mr-3" style={{ background: colors.primary, color: '#fff' }}>
+          {/* Contact Section */}
+<div className="bg-gray-50 rounded-lg p-6 shadow-sm border border-gray-200">
+  <h2 className="text-lg font-bold mb-4 flex items-center text-gray-900 tracking-wide uppercase">
+    <span className="mr-3 text-gray-700">
       {icons.email}
     </span>
-    CONTACT
+    Contact
   </h2>
   <div className="space-y-3 break-words">
     {/* Phone */}
     {resumeData?.personal?.phone && (
-      <div className="flex items-center">
-        <span className="mr-3" style={{ color: colors.primary }}>{icons.phone}</span>
-        <span className="text-white text-sm">
+      <div className="flex items-start">
+        <span className="mr-3 text-gray-600 mt-0.5">{icons.phone}</span>
+        <span className="text-gray-700 text-sm font-medium">
           {typeof resumeData.personal.phone === 'object' ? resumeData.personal.phone.name : resumeData.personal.phone}
         </span>
       </div>
@@ -895,120 +1074,195 @@ const renderEcoGreenLayout = () => (
 
     {/* Email */}
     {resumeData?.personal?.email && (
-      <div className="flex items-center">
-        <span className="mr-3" style={{ color: colors.primary }}>{icons.email}</span>
+      <div className="flex items-start">
+        <span className="mr-3 text-gray-600 mt-0.5">{icons.email}</span>
         <a
-          href={`mailto:${typeof resumeData.personal.email === 'object' ? resumeData.personal.email.name : resumeData.personal.email}`}
-          className="text-white hover:underline text-sm break-all"
+          href={`mailto:${typeof resumeData.personal.email === 'object'
+            ? resumeData.personal.email.name
+            : resumeData.personal.email}`}
+          className="text-blue-700 hover:underline text-sm break-all font-medium"
         >
-          {typeof resumeData.personal.email === 'object' ? resumeData.personal.email.name : resumeData.personal.email}
+          {typeof resumeData.personal.email === 'object'
+            ? resumeData.personal.email.name
+            : resumeData.personal.email}
         </a>
       </div>
     )}
 
     {/* Website */}
     {resumeData?.personal?.website && (
-      <div className="flex items-center">
-        <span className="mr-3" style={{ color: colors.primary }}>{icons.website}</span>
+      <div className="flex items-start">
+        <span className="mr-3 text-gray-600 mt-0.5">{icons.website}</span>
         <a
-          href={(typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website).startsWith('http') 
-            ? (typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website)
-            : `https://${typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website}`}
+          href={(typeof resumeData.personal.website === 'object'
+            ? resumeData.personal.website.name
+            : resumeData.personal.website).startsWith('http')
+            ? (typeof resumeData.personal.website === 'object'
+                ? resumeData.personal.website.name
+                : resumeData.personal.website)
+            : `https://${typeof resumeData.personal.website === 'object'
+                ? resumeData.personal.website.name
+                : resumeData.personal.website}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-white hover:underline text-sm break-all"
+          className="text-blue-700 hover:underline text-sm break-all font-medium"
         >
-          {typeof resumeData.personal.website === 'object' ? resumeData.personal.website.name : resumeData.personal.website}
+          {typeof resumeData.personal.website === 'object'
+            ? resumeData.personal.website.name
+            : resumeData.personal.website}
         </a>
       </div>
     )}
 
     {/* LinkedIn */}
     {resumeData?.personal?.linkedin && (
-      <div className="flex items-center">
-        <span className="mr-3" style={{ color: colors.primary }}>{icons.linkedin}</span>
+      <div className="flex items-start">
+        <span className="mr-3 text-gray-600 mt-0.5">{icons.linkedin}</span>
         <a
-          href={(typeof resumeData.personal.linkedin === 'object' ? resumeData.personal.linkedin.name : resumeData.personal.linkedin).startsWith('http')
-            ? (typeof resumeData.personal.linkedin === 'object' ? resumeData.personal.linkedin.name : resumeData.personal.linkedin)
-            : `https://www.linkedin.com/in/${typeof resumeData.personal.linkedin === 'object' ? resumeData.personal.linkedin.name : resumeData.personal.linkedin}`}
+          href={(typeof resumeData.personal.linkedin === 'object'
+            ? resumeData.personal.linkedin.name
+            : resumeData.personal.linkedin).startsWith('http')
+            ? (typeof resumeData.personal.linkedin === 'object'
+                ? resumeData.personal.linkedin.name
+                : resumeData.personal.linkedin)
+            : `https://linkedin.com/in/${typeof resumeData.personal.linkedin === 'object'
+                ? resumeData.personal.linkedin.name
+                : resumeData.personal.linkedin}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-white hover:underline text-sm break-all"
+          className="text-blue-700 hover:underline text-sm break-all font-medium"
         >
-          {typeof resumeData.personal.linkedin === 'object' ? resumeData.personal.linkedin.name : resumeData.personal.linkedin}
+          {typeof resumeData.personal.linkedin === 'object'
+            ? resumeData.personal.linkedin.name
+            : resumeData.personal.linkedin}
         </a>
       </div>
     )}
 
     {/* GitHub */}
     {resumeData?.personal?.github && (
-      <div className="flex items-center">
-        <span className="mr-3" style={{ color: colors.primary }}>{icons.github}</span>
+      <div className="flex items-start">
+        <span className="mr-3 text-gray-600 mt-0.5">{icons.github}</span>
         <a
-          href={(typeof resumeData.personal.github === 'object' ? resumeData.personal.github.name : resumeData.personal.github).startsWith('http')
-            ? (typeof resumeData.personal.github === 'object' ? resumeData.personal.github.name : resumeData.personal.github)
-            : `https://github.com/${typeof resumeData.personal.github === 'object' ? resumeData.personal.github.name : resumeData.personal.github}`}
+          href={(typeof resumeData.personal.github === 'object'
+            ? resumeData.personal.github.name
+            : resumeData.personal.github).startsWith('http')
+            ? (typeof resumeData.personal.github === 'object'
+                ? resumeData.personal.github.name
+                : resumeData.personal.github)
+            : `https://github.com/${typeof resumeData.personal.github === 'object'
+                ? resumeData.personal.github.name
+                : resumeData.personal.github}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-white hover:underline text-sm break-all"
+          className="text-blue-700 hover:underline text-sm break-all font-medium"
         >
-          {typeof resumeData.personal.github === 'object' ? resumeData.personal.github.name : resumeData.personal.github}
+          {typeof resumeData.personal.github === 'object'
+            ? resumeData.personal.github.name
+            : resumeData.personal.github}
         </a>
       </div>
     )}
 
     {/* Location */}
     {resumeData?.personal?.location && (
-      <div className="flex items-center">
-        <span className="mr-3" style={{ color: colors.primary }}>{icons.location}</span>
-        <span className="text-white text-sm">
-          {typeof resumeData.personal.location === 'object' ? resumeData.personal.location.name : resumeData.personal.location}
+      <div className="flex items-start">
+        <span className="mr-3 text-gray-600 mt-0.5">{icons.location}</span>
+        <span className="text-gray-700 text-sm font-medium">
+          {typeof resumeData.personal.location === 'object'
+            ? resumeData.personal.location.name
+            : resumeData.personal.location}
         </span>
       </div>
     )}
   </div>
 </div>
 
-          {renderSkillsSection()}
-          {renderHobbiesSection()}
+         {/* Skills */}
+  <div className="bg-gray-50 rounded-lg p-6 shadow-sm border border-gray-200">
+    <h2 className="text-lg font-bold mb-4 flex items-center tracking-wide uppercase">
+      <span className="mr-3 text-gray-700">{icons.skills}</span>
+      Skills
+    </h2>
+    {renderSkillsSection()}
+  </div>
+
+          {/* Hobbies */}
+          {resumeData?.hobbies?.length > 0 && (
+            <div className="bg-gray-50 rounded-lg p-6 shadow-sm border border-gray-200">
+              <h2 className="text-lg font-bold mb-4 flex items-center tracking-wide uppercase">
+                <span className="mr-3 text-gray-700">{icons.hobbies}</span>
+                Interests
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {resumeData.hobbies.map((hobby, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300"
+                  >
+                    {typeof hobby === 'object' ? hobby.name : hobby}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right */}
+        {/* Right Column */}
         <div className="lg:col-span-2 space-y-8">
           {/* Summary */}
           {resumeData?.personal?.summary && (
-            <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-                <span className="p-2 rounded-md mr-3" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }}>{icons.user}</span>
-                PROFILE
+            <div className="bg-gray-50 rounded-lg p-6 shadow-sm border border-gray-200">
+              <h2 className="text-lg font-bold mb-3 flex items-center tracking-wide uppercase">
+                <span className="mr-3 text-gray-700">{icons.user}</span>
+                Professional Summary
               </h2>
-              <p className="text-white leading-relaxed text-sm">{resumeData.personal.summary}</p>
+              <p className="text-gray-700 leading-relaxed text-sm font-medium">
+                {typeof resumeData.personal.summary === 'object' 
+                  ? resumeData.personal.summary.name 
+                  : resumeData.personal.summary}
+              </p>
             </div>
           )}
 
           {/* Experience */}
           {resumeData?.experience?.length > 0 && (
-            <div className="bg-gray-800 rounded-xl p-6 shadow-lg relative overflow-hidden">
-              <div className="absolute left-6 top-0 bottom-0 w-0.5" style={{ background: colors.primary }}></div>
-              <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-                <span className="p-2 rounded-md mr-3" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }}>
+            <div className="bg-gray-50 rounded-lg p-6 shadow-sm border border-gray-200 relative overflow-hidden">
+              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+              <h2 className="text-lg font-bold mb-5 flex items-center tracking-wide uppercase">
+                <span className="mr-3 text-gray-700">
                   {icons.briefcase}
                 </span>
-                {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                {resumeData.experience[0]?.isInternship ? 'Internship Experience' : 'Professional Experience'}
               </h2>
               <div className="space-y-8 ml-4">
                 {resumeData.experience.map((exp, index) => (
                   <div key={index} className="relative pl-8">
-                    <div className="absolute left-0 top-3 w-4 h-4 rounded-full z-10" style={{ background: colors.primary }}></div>
-                    <div className="border-l-2 pl-6 pt-1 pb-4" style={{ borderColor: colors.primary }}>
+                    <div className="absolute left-0 top-3 w-3 h-3 rounded-full z-10 bg-gray-500 border-2 border-white shadow"></div>
+                    <div className="border-l-2 pl-6 pt-1 pb-4 border-gray-300">
                       <div className="flex flex-wrap justify-between">
-                        <h3 className="text-lg font-bold" style={{ color: colors.primary }}>{exp.position}</h3>
-                        <span className="text-sm" style={{ color: colors.accent, background: '#1e293b', padding: '2px 8px', borderRadius: '6px' }}>{exp.duration}</span>
+                        <h3 className="text-lg font-bold text-gray-900">
+                          {typeof exp.position === 'object' ? exp.position.name : exp.position}
+                        </h3>
+                        <span className="text-sm text-gray-700 font-medium whitespace-nowrap">
+                          {typeof exp.duration === 'object' ? exp.duration.name : exp.duration}
+                        </span>
                       </div>
-                      <p className="text-white font-medium text-sm">{exp.company}</p>
-                      <p className="text-gray-200 mt-2 text-xs">{exp.responsibilities}</p>
+                      <div className="flex justify-between mt-1">
+                        <p className="text-gray-800 font-medium text-sm">
+                          {typeof exp.company === 'object' ? exp.company.name : exp.company}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {typeof exp.location === 'object' ? exp.location.name : exp.location}
+                        </p>
+                      </div>
+                      <p className="text-gray-700 mt-3 text-sm leading-relaxed">
+                        {typeof exp.responsibilities === 'object' 
+                          ? exp.responsibilities.name 
+                          : exp.responsibilities}
+                      </p>
                       {exp.technologies && (
-                        <div className="mt-2 flex flex-wrap gap-1">
+                        <div className="mt-3 flex flex-wrap gap-1.5">
                           {renderTechnologyTags(exp.technologies)}
                         </div>
                       )}
@@ -1020,1044 +1274,880 @@ const renderEcoGreenLayout = () => (
           )}
 
           {/* Projects */}
-          {resumeData?.projects?.length > 0 && (
-            <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
-              <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-                <span className="p-2 rounded-md mr-3" style={{ background: `linear-gradient(90deg, ${colors.secondary}, ${colors.primary})` }}>
-                  {icons.project}
-                </span>
-                Projects
-              </h2>
-              <div className="grid grid-cols-1 gap-6">
-                {resumeData.projects.map((project, index) => (
-                  <div key={index} className="bg-gray-700 p-4 rounded-lg hover:bg-gray-600 transition-all duration-300">
-                    <h3 className="font-bold text-sm" style={{ color: colors.secondary }}>
-                      {project.link ? (
-                        <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                          {project.title}
-                        </a>
-                      ) : project.title}
-                    </h3>
-                    <p className="text-white mt-2 text-xs">{project.description || 'Project description...'}</p>
-                    {project.technologies && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {(Array.isArray(project.technologies) ? project.technologies : project.technologies.split(',')).map((tech, i) => (
-                          <span key={i} className="px-2 py-1 rounded text-xs" style={{ background: colors.primary, color: '#fff' }}>
-                            {tech.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+{resumeData?.projects?.length > 0 && (
+  <div className="bg-gray-50 rounded-lg p-6 shadow-sm border border-gray-200">
+    <h2 className="text-lg font-bold mb-5 flex items-center tracking-wide uppercase">
+      <span className="mr-3 text-gray-700">{icons.project}</span>
+      Projects
+    </h2>
+    <div className="grid grid-cols-1 gap-6">
+      {resumeData.projects.map((project, index) => (
+        <div
+          key={index}
+          className="p-5 rounded-lg border border-grey-200 bg-white hover:shadow-md transition-all duration-300"
+        >
+          <h3 className="font-bold text-base text-gray-900 mb-1">
+            {project.link ? (
+              <a
+                href={typeof project.link === 'object' ? project.link.name : project.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-700 hover:underline"
+              >
+                {typeof project.title === 'object' ? project.title.name : project.title}
+              </a>
+            ) : (
+              typeof project.title === 'object' ? project.title.name : project.title
+            )}
+          </h3>
 
-          {/* Education */}
-          {resumeData?.education?.length > 0 && (
-            <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
-              <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-                <span className="p-2 rounded-md mr-3" style={{ background: `linear-gradient(90deg, ${colors.secondary}, ${colors.accent})` }}>
-                  {icons.education}
-                </span>
-                Education
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {resumeData.education.map((edu, index) => (
-                  <div key={index} className="bg-gray-700 p-4 rounded-lg hover:bg-gray-600 transition-all duration-300">
-                    <div className="flex justify-between">
-                      <h3 className="font-bold text-sm" style={{ color: colors.accent }}>{edu.degree || 'Degree'}</h3>
-                      <span className="text-sm" style={{ color: colors.accent }}>{edu.duration || 'Year'}</span>
-                    </div>
-                    <p className="text-white text-sm">{edu.institution || 'Institution'}</p>
-                    {edu.field && (
-                      <p className="text-gray-200 text-xs mt-1">{edu.field} {edu.cgpa && `| CGPA: ${edu.cgpa}`}</p>
-                    )}
-                    {edu.school && <p className="text-gray-200 text-xs mt-1">School: {edu.school}</p>}
-                    {edu.achievements && <p className="text-gray-200 text-xs mt-1">Achievements: {edu.achievements}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-
-const renderBoldRedLayout = () => (
-  <div className="resume-content flex flex-col items-center min-h-[297mm] relative">
-    <Watermark
-      templateId={resumeData?.template}
-      unlockedTemplates={unlockedTemplates}
-    />
-    <motion.div
-      className="w-full p-6 text-center"
-      style={{ backgroundColor: colors.primary, color: textColor }}
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <h1 className="text-3xl font-bold mb-1">
-        {resumeData?.personal?.name || 'Your Name'}
-      </h1>
-      <p className="text-xl">
-        {resumeData?.personal?.title || 'Professional Title'}
-      </p>
-    </motion.div>
-
-    <div className="w-4/5 py-8 flex-1">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div>
-          {resumeData?.experience?.length > 0 && (
-            <motion.div className="mb-8">
-              <h2 className="font-bold text-xl mb-4 flex items-center border-b pb-2" style={{ borderColor: colors.primary }}>
-                <motion.div
-                  className="mr-2"
-                  style={{ color: colors.primary }}
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  {icons.briefcase}
-                </motion.div>
-                {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
-              </h2>
-              <div className="space-y-4">
-                {resumeData.experience.map((exp, index) => (
-                  <div key={index} className="mb-3">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
-                      </div>
-                      <span className="text-gray-600 text-sm">{exp.duration || 'Duration'}</span>
-                    </div>
-                    <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                      {exp.company || 'Company'}
-                    </div>
-                    <p className="text-gray-700 text-sm">
-                      {exp.responsibilities || 'Responsibilities and achievements...'}
-                    </p>
-                    {exp.technologies && (
-                      <div className="mt-1">
-                        <span className="font-medium text-sm">Technologies: </span>
-                        {renderTechnologyTags(exp.technologies)}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {resumeData?.projects?.length > 0 && (
-            <motion.div className="mb-8">
-              <h2 className="font-bold text-xl mb-4 flex items-center border-b pb-2" style={{ borderColor: colors.primary }}>
-                <div className="mr-2" style={{ color: colors.primary }}>
-                  {icons.project}
-                </div>
-                Projects
-              </h2>
-              <div className="space-y-4">
-                {resumeData.projects.map((project, index) => (
-                  <div key={index} className="mb-3">
-                    <h3 className="font-bold text-sm">
-                      {project.link ? (
-                        <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-red-600 hover:underline">
-                          {project.title}
-                        </a>
-                      ) : (
-                        project.title || 'Project Name'
-                      )}
-                    </h3>
-                    <p className="text-gray-700 text-sm">
-                      {project.description || 'Project description...'}
-                    </p>
-                    {project.technologies && (
-                      <div className="mt-2">
-                        <span className="font-medium text-sm">Technologies: </span>
-                        {renderTechnologyTags(project.technologies)}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        <div>
-          {resumeData?.education?.length > 0 && (
-            <motion.div className="mb-8">
-              <h2 className="font-bold text-xl mb-4 flex items-center border-b pb-2" style={{ borderColor: colors.primary }}>
-                <div className="mr-2" style={{ color: colors.primary }}>
-                  {icons.education}
-                </div>
-                Education
-              </h2>
-              <div className="space-y-4">
-                {resumeData.education.map((edu, index) => (
-                  <div key={index} className="mb-3">
-                    <div className="flex justify-between">
-                      <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
-                      <span className="text-gray-600 text-sm">{edu.duration || 'Year'}</span>
-                    </div>
-                    <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                      {edu.institution || 'Institution'}
-                    </div>
-                    <p className="text-gray-700 text-sm">
-                      {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
-                    </p>
-                    {edu.school && <p className="text-gray-700 text-sm">School: {edu.school}</p>}
-                    {edu.achievements && <p className="text-gray-700 text-sm">Achievements: {edu.achievements}</p>}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {renderSkillsSection()}
-          {renderHobbiesSection()}
-
-          {resumeData?.personal?.summary && (
-            <motion.div className="mb-6">
-              <h2 className="font-bold text-xl mb-4 flex items-center border-b pb-2" style={{ borderColor: colors.primary }}>
-                <div className="mr-2" style={{ color: colors.primary }}>
-                  {icons.user}
-                </div>
-                Summary
-              </h2>
-              <p className="text-gray-700 text-sm">
-                {resumeData.personal.summary}
-              </p>
-            </motion.div>
-          )}
-        </div>
-      </div>
-    </div>
-
-    <motion.div
-      className="w-full p-4 text-center mt-auto"
-      style={{ backgroundColor: colors.primary, color: textColor }}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.2 }}
-    >
-      <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm">
-        {resumeData?.personal?.email && (
-          <span className="flex items-center gap-1">{icons.email}{resumeData.personal.email}</span>
-        )}
-        {resumeData?.personal?.phone && (
-          <span className="flex items-center gap-1">{icons.phone}{resumeData.personal.phone}</span>
-        )}
-        {resumeData?.personal?.location && (
-          <span className="flex items-center gap-1">{icons.location}{resumeData.personal.location}</span>
-        )}
-        {resumeData?.personal?.linkedin && (
-          <a href={resumeData.personal.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
-            {icons.linkedin} LinkedIn
-          </a>
-        )}
-        {resumeData?.personal?.github && (
-          <a href={resumeData.personal.github} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
-            {icons.github} GitHub
-          </a>
-        )}
-        {resumeData?.personal?.website && (
-          <a href={resumeData.personal.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
-            {icons.website} Website
-          </a>
-        )}
-      </div>
-    </motion.div>
-  </div>
-);
-
-
-
- const renderProfessionalTealLayout = () => (
-  <div className="resume-content min-h-[297mm] relative">
-    <Watermark
-      templateId={resumeData?.template}
-      unlockedTemplates={unlockedTemplates}
-    />
-
-    <motion.div
-      className="p-6 text-center"
-      style={{ backgroundColor: colors.primary, color: textColor }}
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <h1 className="text-3xl font-bold mb-1" style={{ color: textColor }}>
-        {resumeData?.personal?.name || 'Your Name'}
-      </h1>
-      <p className="text-xl" style={{ color: textColor }}>
-        {resumeData?.personal?.title || 'Professional Title'}
-      </p>
-    </motion.div>
-
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6">
-      {/* Sidebar */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        {renderContactSection()}
-        {renderSkillsSection()}
-        {renderHobbiesSection()}
-      </motion.div>
-
-      {/* Middle Column - Summary + Experience */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        {resumeData?.personal?.summary && (
-          <div className="mb-6">
-            <h2 className="font-bold text-lg mb-3 border-b pb-2" style={{ borderColor: colors.primary }}>
-              Summary
-            </h2>
-            <p className="text-gray-700 text-sm">
-              {resumeData.personal.summary}
+          {/* ✅ Project Duration */}
+          {project.duration && (
+            <p className="text-sm text-gray-500 italic mb-2">
+              {typeof project.duration === 'object' ? project.duration.name : project.duration}
             </p>
-          </div>
-        )}
+          )}
 
-        {resumeData?.experience?.length > 0 && (
-          <div className="mb-6">
-            <h2 className="font-bold text-lg mb-3 border-b pb-2" style={{ borderColor: colors.primary }}>
-              {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
-            </h2>
-            <div className="space-y-4">
-              {resumeData.experience.map((exp, index) => (
-                <div key={index} className="mb-3">
-                  <div className="flex justify-between">
-                    <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
-                    <span className="text-gray-600 text-xs">{exp.duration || 'Duration'}</span>
-                  </div>
-                  <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                    {exp.company || 'Company'}
-                  </div>
-                  <p className="text-gray-700 text-xs">
-                    {exp.responsibilities || 'Responsibilities and achievements...'}
-                  </p>
-                  {exp.technologies && (
-                    <div className="mt-1">
-                      <span className="font-medium text-xs">Technologies: </span>
-                      {renderTechnologyTags(exp.technologies)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </motion.div>
+          <p className="text-gray-700 mt-2 text-sm leading-relaxed">
+            {typeof project.description === 'object'
+              ? project.description.name
+              : project.description || 'Project description...'}
+          </p>
 
-      {/* Right Column - Education + Projects */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        {resumeData?.education?.length > 0 && (
-          <div className="mb-6">
-            <h2 className="font-bold text-lg mb-3 border-b pb-2" style={{ borderColor: colors.primary }}>Education</h2>
-            <div className="space-y-4">
-              {resumeData.education.map((edu, index) => (
-                <div key={index} className="mb-3">
-                  <div className="flex justify-between">
-                    <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
-                    <span className="text-gray-600 text-xs">{edu.duration || 'Year'}</span>
-                  </div>
-                  <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                    {edu.institution || 'Institution'}
-                  </div>
-                  <p className="text-gray-700 text-xs">
-                    {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
-                  </p>
-                  {edu.school && <p className="text-gray-700 text-xs">School: {edu.school}</p>}
-                  {edu.achievements && <p className="text-gray-700 text-xs">Achievements: {edu.achievements}</p>}
-                </div>
-              ))}
+          {project.technologies && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {renderTechnologyTags(project.technologies)}
             </div>
-          </div>
-        )}
-
-        {resumeData?.projects?.length > 0 && (
-          <div>
-            <h2 className="font-bold text-lg my-3 border-b pb-2" style={{ borderColor: colors.primary }}>Projects</h2>
-            <div className="space-y-4">
-              {resumeData.projects.map((project, index) => (
-                <div key={index} className="mb-3">
-                  <h3 className="font-bold text-sm">
-                    {project.link ? (
-                      <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline">
-                        {project.title}
-                      </a>
-                    ) : (
-                      project.title || 'Project Name'
-                    )}
-                  </h3>
-                  <p className="text-gray-700 text-xs">
-                    {project.description || 'Project description...'}
-                  </p>
-                  {project.technologies && (
-                    <div className="mt-2">
-                      <span className="font-medium text-sm">Technologies: </span>
-                      {renderTechnologyTags(project.technologies)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </motion.div>
+          )}
+        </div>
+      ))}
     </div>
   </div>
-);
+)}
 
-
- const renderMinimalistLayout = () => (
-  <div className="resume-content p-8 min-h-[297mm] bg-white max-w-[210mm] mx-auto relative text-sm">
-    <Watermark
-      templateId={resumeData?.template}
-      unlockedTemplates={unlockedTemplates}
-    />
-
-    {/* Header with Name and Title */}
-    <motion.div
-      className="text-center mb-8"
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <h1 className="text-3xl font-bold mb-1">
-        {resumeData?.personal?.name || 'Your Name'}
-      </h1>
-      <p className="text-xl text-gray-600">
-        {resumeData?.personal?.title || 'Professional Title'}
-      </p>
-
-      {/* Contact Info */}
-      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-3 text-sm text-gray-500">
-        {resumeData?.personal?.email && (
-          <span className="flex items-center gap-1">
-            {icons.email} {resumeData.personal.email}
-          </span>
-        )}
-        {resumeData?.personal?.phone && (
-          <span className="flex items-center gap-1">
-            {icons.phone} {resumeData.personal.phone}
-          </span>
-        )}
-        {resumeData?.personal?.location && (
-          <span className="flex items-center gap-1">
-            {icons.location} {resumeData.personal.location}
-          </span>
-        )}
-        {resumeData?.personal?.linkedin && (
-          <a
-            href={resumeData.personal.linkedin}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:underline"
-          >
-            {icons.linkedin} LinkedIn
-          </a>
-        )}
-        {resumeData?.personal?.github && (
-          <a
-            href={resumeData.personal.github}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:underline"
-          >
-            {icons.github} GitHub
-          </a>
-        )}
-        {resumeData?.personal?.website && (
-          <a
-            href={resumeData.personal.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:underline"
-          >
-            {icons.website} Website
-          </a>
-        )}
-      </div>
-    </motion.div>
-
-    {/* Body Sections */}
-    <div className="space-y-8">
-      {/* Summary */}
-      {resumeData?.personal?.summary && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 border-b pb-2">Summary</h2>
-          <p className="text-gray-700">{resumeData.personal.summary}</p>
-        </div>
-      )}
-
-      {/* Experience */}
-      {resumeData?.experience?.length > 0 && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 border-b pb-2">
-            {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
-          </h2>
-          <div className="space-y-4">
-            {resumeData.experience.map((exp, index) => (
-              <div key={index} className="mb-3">
-                <div className="flex flex-wrap justify-between items-center">
-                  <div>
-                    <h3 className="font-bold">{exp.position || 'Position'}</h3>
-                    <div className="font-semibold text-gray-700">
-                      {exp.company || 'Company'}
-                    </div>
-                  </div>
-                  <span className="text-gray-600">{exp.duration || 'Duration'}</span>
-                </div>
-                <p className="text-gray-600 mt-2">{exp.responsibilities}</p>
-                {exp.technologies && (
-                  <div className="mt-2">
-                    <span className="font-medium">Technologies: </span>
-                    {renderTechnologyTags(exp.technologies)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Education */}
-      {resumeData?.education?.length > 0 && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 border-b pb-2">Education</h2>
-          <div className="space-y-4">
-            {resumeData.education.map((edu, index) => (
-              <div key={index} className="mb-3">
-                <div className="flex flex-wrap justify-between">
-                  <h3 className="font-bold">{edu.degree || 'Degree'}</h3>
-                  <span className="text-gray-600">{edu.duration || 'Year'}</span>
-                </div>
-                <div className="font-semibold text-gray-700">{edu.institution}</div>
-                <p className="text-gray-600">
-                  {edu.field || 'Field of Study'}
-                  {edu.cgpa && ` | CGPA: ${edu.cgpa}`}
-                </p>
-                {edu.school && <p className="text-gray-600">School: {edu.school}</p>}
-                {edu.achievements && (
-                  <p className="text-gray-600 mt-1">Achievements: {edu.achievements}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Projects */}
-      {resumeData?.projects?.length > 0 && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 border-b pb-2">Projects</h2>
-          <div className="space-y-4">
-            {resumeData.projects.map((project, index) => (
-              <div key={index} className="mb-3">
-                <div className="flex flex-wrap justify-between items-center">
-                  <h3 className="font-bold">
-                    {project.link ? (
-                      <a
-                        href={project.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-gray-800 hover:underline"
-                      >
-                        {project.title}
-                      </a>
-                    ) : (
-                      project.title || 'Project Name'
-                    )}
-                  </h3>
-                  <div>
-                    {project.duration && (
-                      <span className="text-gray-600 text-sm mr-2">{project.duration}</span>
-                    )}
-                    {project.category && (
-                      <span className="text-gray-500 text-sm bg-gray-100 px-2 py-1 rounded">
-                        {project.category}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <p className="text-gray-600 text-sm mt-1">{project.description}</p>
-                {project.technologies && (
-                  <div className="mt-2">
-                    <span className="font-medium text-sm">Technologies: </span>
-                    {renderTechnologyTags(project.technologies)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Certifications */}
-      {resumeData?.certifications?.length > 0 && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 border-b pb-2">Certifications</h2>
-          <div className="space-y-2">
-            {resumeData.certifications.map((cert, index) => (
-              <div key={index}>
-                <div className="font-bold">{cert.name}</div>
-                <div className="text-gray-600 text-sm">
-                  {cert.issuer} | {cert.date}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Skills & Hobbies */}
-      {renderSkillsSection()}
-      {renderHobbiesSection()}
-    </div>
-  </div>
-);
-
-
-const renderClassicLayout = () => (
-  <div className="resume-content p-8 min-h-[297mm] bg-white relative text-sm">
-    <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
-
-    {/* Header */}
-    <motion.div
-      className="text-center mb-8"
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <h1 className="text-3xl font-bold mb-1" style={{ color: colors.primary }}>
-        {resumeData?.personal?.name || 'Your Name'}
-      </h1>
-      <p className="text-xl text-gray-600">
-        {resumeData?.personal?.title || 'Professional Title'}
-      </p>
-
-      {/* Contact Info */}
-      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-3 text-sm text-gray-500">
-        {resumeData?.personal?.email && (
-          <span className="flex items-center gap-1">{icons.email}{resumeData.personal.email}</span>
-        )}
-        {resumeData?.personal?.phone && (
-          <span className="flex items-center gap-1">{icons.phone}{resumeData.personal.phone}</span>
-        )}
-        {resumeData?.personal?.location && (
-          <span className="flex items-center gap-1">{icons.location}{resumeData.personal.location}</span>
-        )}
-        {resumeData?.personal?.linkedin && (
-          <a
-            href={resumeData.personal.linkedin}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:underline"
-          >
-            {icons.linkedin} LinkedIn
-          </a>
-        )}
-        {resumeData?.personal?.github && (
-          <a
-            href={resumeData.personal.github}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:underline"
-          >
-            {icons.github} GitHub
-          </a>
-        )}
-        {resumeData?.personal?.portfolio && (
-          <a
-            href={resumeData.personal.portfolio}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:underline"
-          >
-            {icons.portfolio} Portfolio
-          </a>
-        )}
-        {resumeData?.personal?.website && (
-          <a
-            href={resumeData.personal.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:underline"
-          >
-            {icons.website} Website
-          </a>
-        )}
-      </div>
-    </motion.div>
-
-    {/* Body Sections */}
-    <div className="space-y-8">
-      {/* Summary */}
-      {resumeData?.personal?.summary && (
-        <div className="mb-6">
-          <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Summary</h2>
-          <p className="text-gray-700 text-sm">{resumeData.personal.summary}</p>
-        </div>
-      )}
-
-      {/* Experience / Internship */}
-      {resumeData?.experience?.length > 0 && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>
-            {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
-          </h2>
-          <div className="space-y-4">
-            {resumeData.experience.map((exp, index) => (
-              <div key={index} className="pl-4 border-l-2 mb-4" style={{ borderColor: colors.primary }}>
-                <div className="flex flex-wrap justify-between items-center">
-                  <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
-                  <span className="text-gray-600 text-sm">{exp.duration || 'Duration'}</span>
-                </div>
-                <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                  {exp.company || 'Company'}
-                </div>
-                <p className="text-gray-700 text-sm">
-                  {exp.responsibilities || 'Responsibilities and achievements...'}
-                </p>
-                {exp.technologies && (
-                  <div className="mt-2">
-                    <span className="font-medium text-sm">Technologies: </span>
-                    {renderTechnologyTags(exp.technologies)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Education */}
-      {resumeData?.education?.length > 0 && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Education</h2>
-          <div className="space-y-4">
-            {resumeData.education.map((edu, index) => (
-              <div key={index} className="pl-4 border-l-2 mb-4" style={{ borderColor: colors.primary }}>
-                <div className="flex flex-wrap justify-between">
-                  <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
-                  <span className="text-gray-600 text-sm">{edu.duration || 'Year'}</span>
-                </div>
-                <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                  {edu.institution || 'Institution'}
-                </div>
-                {edu.field && <p className="text-gray-700 text-sm">{edu.field}</p>}
-                {edu.cgpa && <p className="text-gray-700 text-sm">CGPA: {edu.cgpa}</p>}
-                {edu.school && <p className="text-gray-700 text-sm">School: {edu.school}</p>}
-                {edu.achievements && <p className="text-gray-700 text-sm mt-1">Achievements: {edu.achievements}</p>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Skills */}
-      {(resumeData?.softSkills?.length > 0 ||
-        resumeData?.programmingSkills?.length > 0 ||
-        resumeData?.frameworks?.length > 0 ||
-        resumeData?.languages?.length > 0 ||
-        resumeData?.certifications?.length > 0) && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Skills</h2>
-          <div className="pl-4 border-l-2" style={{ borderColor: colors.primary }}>
-            {renderSkillsSection()}
-          </div>
-        </div>
-      )}
-
-      {/* Projects */}
-      {resumeData?.projects?.length > 0 && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Projects</h2>
-          <div className="space-y-4">
-            {resumeData.projects.map((project, index) => (
-              <div key={index} className="pl-4 border-l-2 mb-4" style={{ borderColor: colors.primary }}>
-                <div className="flex flex-wrap justify-between items-center">
-                  <h3 className="font-bold text-sm">
-                    {project.link ? (
-                      <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {project.title}
-                      </a>
-                    ) : (
-                      project.title || 'Project Name'
-                    )}
-                  </h3>
-                  <div>
-                    {project.duration && <span className="text-gray-600 text-sm mr-3">{project.duration}</span>}
-                    {project.category && (
-                      <span className="text-gray-500 text-xs bg-gray-100 px-2 py-1 rounded">
-                        {project.category}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <p className="text-gray-700 text-sm">{project.description || 'Project description...'}</p>
-                {project.technologies && (
-                  <div className="mt-2">
-                    <span className="font-medium text-sm">Technologies: </span>
-                    {renderTechnologyTags(project.technologies)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Hobbies */}
-      {renderHobbiesSection()}
-    </div>
-  </div>
-);
-
-
-
-  const renderSidebarLayout = () => (
-  <div className="resume-content flex flex-col md:flex-row min-h-[297mm] relative">
-    <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
-
-    {/* Sidebar */}
-    <motion.div
-      className="w-full md:w-1/3 p-6"
-      style={{ backgroundColor: colors.primary, color: textColor }}
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4 }}
-    >
-      {/* Header */}
-      <motion.div
-        className="text-center mb-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        <h1 className="text-2xl font-bold mb-1">{resumeData?.personal?.name || 'Your Name'}</h1>
-        <p className="text-lg opacity-90">{resumeData?.personal?.title || 'Professional Title'}</p>
-      </motion.div>
-
-      {/* Sidebar Sections */}
-      <div className="space-y-6">
-        {/* Contact */}
-        <div className="contact-section">
-          <h2 className="font-bold text-lg mb-3 border-b pb-2">Contact</h2>
-          <div className="space-y-3">
-            {renderContactItem(icons.email, resumeData?.personal?.email)}
-            {renderContactItem(icons.phone, resumeData?.personal?.phone)}
-            {renderContactItem(icons.location, resumeData?.personal?.location)}
-            {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin, resumeData?.personal?.linkedin)}
-            {renderContactItem(icons.github, resumeData?.personal?.github, resumeData?.personal?.github)}
-            {renderContactItem(icons.website, resumeData?.personal?.website, resumeData?.personal?.website)}
-          </div>
-        </div>
-
-        {/* Skills */}
-        {renderSkillsSection()}
 
         {/* Education */}
-        {resumeData?.education?.length > 0 && (
-          <div>
-            <h2 className="font-bold text-lg mb-3 border-b pb-2">Education</h2>
-            <div className="space-y-3">
-              {resumeData.education.map((edu, index) => (
-                <div key={index} className="mb-3">
-                  <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
-                  <div className="font-medium mb-1 text-sm">
-                    {edu.institution || 'Institution'}
-                  </div>
-                  <p className="text-xs opacity-90">
-                    {edu.duration || 'Year'} | {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
-                  </p>
-                  {edu.school && <p className="text-xs opacity-90">School: {edu.school}</p>}
-                  {edu.achievements && <p className="text-xs opacity-90 mt-1">Achievements: {edu.achievements}</p>}
-                </div>
-              ))}
-            </div>
+{resumeData?.education?.length > 0 && (
+  <div className="bg-gray-50 rounded-lg p-6 shadow-sm border border-gray-200">
+    <h2 className="text-lg font-bold mb-5 flex items-center tracking-wide uppercase">
+      <span className="mr-3 text-gray-700">{icons.education}</span>
+      Education
+    </h2>
+    <div className="space-y-6">
+      {resumeData.education.map((edu, index) => (
+        <div
+          key={index}
+          className="pb-4 border-b border-gray-200 last:border-0 last:pb-0"
+        >
+          {/* Degree + Duration */}
+          <div className="flex justify-between">
+            <h3 className="font-bold text-base text-gray-900">
+              {typeof edu.degree === "object"
+                ? edu.degree.name
+                : edu.degree || "Degree"}
+            </h3>
+            <span className="text-sm text-gray-700 font-medium whitespace-nowrap">
+              {typeof edu.duration === "object"
+                ? edu.duration.name
+                : edu.duration || "Year"}
+            </span>
           </div>
-        )}
 
-        {/* Hobbies */}
-        {renderHobbiesSection()}
-      </div>
-    </motion.div>
+          {/* Institution */}
+          {edu.institution && (
+            <p className="text-gray-800 text-sm font-medium mt-1">
+              {typeof edu.institution === "object"
+                ? edu.institution.name
+                : edu.institution}
+            </p>
+          )}
 
-    {/* Main Content */}
-    <motion.div
-      className="w-full md:w-2/3 p-6"
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4, delay: 0.1 }}
-    >
-      {/* Summary */}
-      {resumeData?.personal?.summary && (
-        <div className="mb-8">
-          <h2 className="font-bold text-lg mb-3 pb-2 border-b" style={{ borderColor: colors.primary }}>Summary</h2>
-          <p className="text-gray-700 text-sm">{resumeData.personal.summary}</p>
+          {/* School */}
+         {edu.school && (
+  <p className="text-gray-700 text-sm mt-1">
+    <span className="font-medium">High School:</span>{" "}
+    {typeof edu.school === "object" ? edu.school.name : edu.school}
+  </p>
+)}
+
+          {/* Field + CGPA */}
+          {edu.field && (
+            <p className="text-gray-700 text-sm mt-1">
+              {typeof edu.field === "object"
+                ? edu.field.name
+                : edu.field}
+              {edu.cgpa && (
+                <span className="font-medium">
+                  {" "}
+                  | GPA:{" "}
+                  {typeof edu.cgpa === "object"
+                    ? edu.cgpa.name
+                    : edu.cgpa}
+                </span>
+              )}
+            </p>
+          )}
+
+          {/* Achievements */}
+          {edu.achievements && (
+            <p className="text-gray-700 text-sm mt-1">
+              <span className="font-medium">Achievements:</span>{" "}
+              {typeof edu.achievements === "object"
+                ? edu.achievements.name
+                : edu.achievements}
+            </p>
+          )}
         </div>
-      )}
+      ))}
+    </div>
+  </div>
+)}
 
-      {/* Experience */}
-      {resumeData?.experience?.length > 0 && (
-        <div className="mb-8">
-          <h2 className="font-bold text-lg mb-3 pb-2 border-b" style={{ borderColor: colors.primary }}>
-            {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
-          </h2>
-          <div className="space-y-4">
-            {resumeData.experience.map((exp, index) => (
-              <div key={index} className="mb-3">
-                <div className="flex justify-between">
-                  <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
-                  <span className="text-gray-600 text-xs">{exp.duration || 'Duration'}</span>
-                </div>
-                <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                  {exp.company || 'Company'}
-                </div>
-                <p className="text-gray-700 text-xs">
-                  {exp.responsibilities || 'Responsibilities and achievements...'}
-                </p>
-                {exp.technologies && (
-                  <div className="mt-1">
-                    <span className="font-medium text-xs">Technologies: </span>
-                    {renderTechnologyTags(exp.technologies)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Projects */}
-      {resumeData?.projects?.length > 0 && (
-        <div>
-          <h2 className="font-bold text-lg mb-3 pb-2 border-b" style={{ borderColor: colors.primary }}>Projects</h2>
-          <div className="space-y-4">
-            {resumeData.projects.map((project, index) => (
-              <div key={index} className="mb-3">
-                <div className="flex justify-between">
-                  <h3 className="font-bold text-sm">
-                    {project.link ? (
-                      <a
-                        href={project.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 hover:underline"
-                      >
-                        {project.title}
-                      </a>
-                    ) : (
-                      project.title || 'Project Name'
-                    )}
-                  </h3>
-                  {project.category && (
-                    <span className="text-gray-500 text-xs bg-gray-100 px-2 py-1 rounded">
-                      {project.category}
+          {/* Certifications */}
+          {resumeData?.certifications?.length > 0 && (
+            <div className="bg-gray-50 rounded-lg p-6 shadow-sm border border-gray-200">
+              <h2 className="text-lg font-bold mb-4 flex items-center tracking-wide uppercase">
+                <span className="mr-3 text-gray-700">{icons.certificate}</span>
+                Certifications
+              </h2>
+              <div className="grid grid-cols-1 gap-3">
+                {resumeData.certifications.map((cert, index) => (
+                  <div key={index} className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">
+                        {typeof cert.name === 'object' ? cert.name.name : cert.name}
+                      </h3>
+                      <p className="text-gray-700 text-xs">
+                        {typeof cert.issuer === 'object' ? cert.issuer.name : cert.issuer}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-600 whitespace-nowrap">
+                      {typeof cert.date === 'object' ? cert.date.name : cert.date}
                     </span>
-                  )}
-                </div>
-                <p className="text-gray-700 text-sm">{project.description || 'Project description...'}</p>
-                {project.technologies && (
-                  <div className="mt-2">
-                    <span className="font-medium text-sm">Technologies: </span>
-                    {renderTechnologyTags(project.technologies)}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
-      )}
-    </motion.div>
+      </div>
+    </div>
   </div>
 );
 
+ const renderBoldRedLayout = () => (
+    <div className="resume-content flex flex-col items-center min-h-[297mm] relative">
+        <Watermark
+            templateId={resumeData?.template}
+            unlockedTemplates={unlockedTemplates}
+        />
+        <motion.div
+            className="w-full p-6 text-center"
+            style={{ backgroundColor: colors.primary, color: textColor.primary }}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+        >
+            <h1 className="text-3xl font-bold mb-1">
+                {resumeData?.personal?.name || 'Your Name'}
+            </h1>
+            <p className="text-xl">
+                {resumeData?.personal?.title || 'Professional Title'}
+            </p>
+        </motion.div>
 
-const renderCreativeLayout = () => (
-  <div className="resume-content p-8 min-h-[297mm] bg-gray-50 relative">
-    <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
+        <div className="w-4/5 py-8 flex-1" style={{ color: textColor.body }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    {resumeData?.experience?.length > 0 && (
+                        <motion.div className="mb-8">
+                            <h2 className="font-bold text-xl mb-4 flex items-center border-b pb-2" style={{ borderColor: colors.primary }}>
+                                <motion.div
+                                    className="mr-2"
+                                    style={{ color: colors.primary }}
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 0.5 }}
+                                >
+                                    {icons.briefcase}
+                                </motion.div>
+                                {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                            </h2>
+                            <div className="space-y-4">
+                                {resumeData.experience.map((exp, index) => (
+                                    <div key={index} className="mb-3">
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
+                                            </div>
+                                            <span className="text-sm">{exp.duration || 'Duration'}</span>
+                                        </div>
+                                        <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                            {exp.company || 'Company'}
+                                        </div>
+                                        <p className="text-sm">
+                                            {exp.responsibilities || 'Responsibilities and achievements...'}
+                                        </p>
+                                        {exp.technologies && (
+                                            <div className="mt-1">
+                                                <span className="font-medium text-sm">Technologies: </span>
+                                                {renderTechnologyTags(exp.technologies)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {resumeData?.projects?.length > 0 && (
+                        <motion.div className="mb-8">
+                            <h2 className="font-bold text-xl mb-4 flex items-center border-b pb-2" style={{ borderColor: colors.primary }}>
+                                <div className="mr-2" style={{ color: colors.primary }}>
+                                    {icons.project}
+                                </div>
+                                Projects
+                            </h2>
+                            <div className="space-y-4">
+                                {resumeData.projects.map((project, index) => (
+                                    <div key={index} className="mb-3">
+                                        <h3 className="font-bold text-sm">
+                                            {project.link ? (
+                                                <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-red-600 hover:underline">
+                                                {project.title}
+                                                </a>
+                                            ) : project.title || 'Project Name'}
+                                        </h3>
+                                        <p className="text-sm">
+                                            {project.description || 'Project description...'}
+                                        </p>
+                                        {project.technologies && (
+                                            <div className="mt-2">
+                                                <span className="font-medium text-sm">Technologies: </span>
+                                                {renderTechnologyTags(project.technologies)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </div>
+
+                <div>
+                    {resumeData?.education?.length > 0 && (
+                        <motion.div className="mb-8">
+                            <h2 className="font-bold text-xl mb-4 flex items-center border-b pb-2" style={{ borderColor: colors.primary }}>
+                                <div className="mr-2" style={{ color: colors.primary }}>
+                                    {icons.education}
+                                </div>
+                                Education
+                            </h2>
+                            <div className="space-y-4">
+                                {resumeData.education.map((edu, index) => (
+                                    <div key={index} className="mb-3">
+                                        <div className="flex justify-between">
+                                            <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
+                                            <span className="text-sm">{edu.duration || 'Year'}</span>
+                                        </div>
+                                        <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                            {edu.institution || 'Institution'}
+                                        </div>
+                                        <p className="text-sm">
+                                            {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
+                                        </p>
+                                        {edu.school && <p className="text-sm">School: {edu.school}</p>}
+                                        {edu.achievements && <p className="text-sm">Achievements: {edu.achievements}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {renderSkillsSection()}
+                    {renderHobbiesSection()}
+
+                    {resumeData?.personal?.summary && (
+                        <motion.div className="mb-6">
+                            <h2 className="font-bold text-xl mb-4 flex items-center border-b pb-2" style={{ borderColor: colors.primary }}>
+                                <div className="mr-2" style={{ color: colors.primary }}>
+                                    {icons.user}
+                                </div>
+                                Summary
+                            </h2>
+                            <p className="text-sm">
+                                {resumeData.personal.summary}
+                            </p>
+                        </motion.div>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        <motion.div
+            className="w-full p-4 text-center mt-auto"
+            style={{ backgroundColor: colors.primary, color: textColor.primary }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+        >
+            <div className="flex justify-center space-x-4 text-sm">
+                {resumeData?.personal?.email && <span className="break-words">{resumeData.personal.email}</span>}
+                {resumeData?.personal?.phone && <span>{resumeData.personal.phone}</span>}
+                {resumeData?.personal?.location && <span>{resumeData.personal.location}</span>}
+            </div>
+        </motion.div>
+    </div>
+);
+
+const renderProfessionalTealLayout = () => (
+    <div className="resume-content min-h-[297mm] relative">
+        <Watermark
+            templateId={resumeData?.template}
+            unlockedTemplates={unlockedTemplates}
+        />
+
+        <motion.div
+            className="p-6 text-center"
+            style={{ backgroundColor: colors.primary, color: textColor.primary }}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+        >
+            <h1 className="text-3xl font-bold mb-1">
+                {resumeData?.personal?.name || 'Your Name'}
+            </h1>
+            <p className="text-xl">
+                {resumeData?.personal?.title || 'Professional Title'}
+            </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6" style={{ color: textColor.body }}>
+            {/* Sidebar */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+            >
+                {renderContactSection()}
+                {renderSkillsSection()}
+                {renderHobbiesSection()}
+            </motion.div>
+
+            {/* Middle Column - Summary + Experience */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+            >
+                {resumeData?.personal?.summary && (
+                    <div className="mb-6">
+                        <h2 className="font-bold text-lg mb-3 border-b pb-2" style={{ borderColor: colors.primary }}>Summary</h2>
+                        <p className="text-sm">
+                            {resumeData.personal.summary}
+                        </p>
+                    </div>
+                )}
+
+                {resumeData?.experience?.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="font-bold text-lg mb-3 border-b pb-2" style={{ borderColor: colors.primary }}>
+                            {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                        </h2>
+                        <div className="space-y-4">
+                            {resumeData.experience.map((exp, index) => (
+                                <div key={index} className="mb-3">
+                                    <div className="flex justify-between">
+                                        <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
+                                        <span className="text-xs">{exp.duration || 'Duration'}</span>
+                                    </div>
+                                    <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                        {exp.company || 'Company'}
+                                    </div>
+                                    <p className="text-xs">
+                                        {exp.responsibilities || 'Responsibilities and achievements...'}
+                                    </p>
+                                    {exp.technologies && (
+                                        <div className="mt-1">
+                                            <span className="font-medium text-xs">Technologies: </span>
+                                            {renderTechnologyTags(exp.technologies)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </motion.div>
+
+            {/* Right Column - Education + Projects */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+            >
+                {resumeData?.education?.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="font-bold text-lg mb-3 border-b pb-2" style={{ borderColor: colors.primary }}>Education</h2>
+                        <div className="space-y-4">
+                            {resumeData.education.map((edu, index) => (
+                                <div key={index} className="mb-3">
+                                    <div className="flex justify-between">
+                                        <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
+                                        <span className="text-xs">{edu.duration || 'Year'}</span>
+                                    </div>
+                                    <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                        {edu.institution || 'Institution'}
+                                    </div>
+                                    <p className="text-xs">
+                                        {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
+                                    </p>
+                                    {edu.school && <p className="text-xs">School: {edu.school}</p>}
+                                    {edu.achievements && <p className="text-xs">Achievements: {edu.achievements}</p>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {resumeData?.projects?.length > 0 && (
+                    <div>
+                        <h2 className="font-bold text-lg my-3 border-b pb-2" style={{ borderColor: colors.primary }}>Projects</h2>
+                        <div className="space-y-4">
+                            {resumeData.projects.map((project, index) => (
+                                <div key={index} className="mb-3">
+                                    <h3 className="font-bold text-sm">
+                                        {project.link ? (
+                                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline">
+                                                {project.title}
+                                            </a>
+                                        ) : project.title || 'Project Name'}
+                                    </h3>
+                                    <p className="text-xs">
+                                        {project.description || 'Project description...'}
+                                    </p>
+                                    {project.technologies && (
+                                        <div className="mt-2">
+                                            <span className="font-medium text-sm">Technologies: </span>
+                                            {renderTechnologyTags(project.technologies)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </motion.div>
+        </div>
+    </div>
+);
+
+const renderMinimalistLayout = () => (
+    <div className="resume-content p-8 min-h-[297mm] bg-white relative" style={{ color: textColor.body }}>
+        <Watermark
+            templateId={resumeData?.template}
+            unlockedTemplates={unlockedTemplates}
+        />
+
+        <motion.div
+            className="text-center mb-8"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+        >
+            <h1 className="text-3xl font-bold mb-1">
+                {resumeData?.personal?.name || 'Your Name'}
+            </h1>
+            <p className="text-xl text-gray-600">
+                {resumeData?.personal?.title || 'Professional Title'}
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 mt-3 text-sm text-gray-500">
+                {resumeData?.personal?.email && <span>{icons.email} {resumeData.personal.email}</span>}
+                {resumeData?.personal?.phone && <span>{icons.phone} {resumeData.personal.phone}</span>}
+                {resumeData?.personal?.location && <span>{icons.location} {resumeData.personal.location}</span>}
+            </div>
+        </motion.div>
+
+        <div className="space-y-8 text-sm">
+            {/* Summary */}
+            {resumeData?.personal?.summary && (
+                <div className="mb-6">
+                    <h2 className="font-bold text-lg mb-3 border-b pb-2">Summary</h2>
+                    <p className="text-gray-700">
+                        {resumeData.personal.summary}
+                    </p>
+                </div>
+            )}
+
+            {/* Experience */}
+            {resumeData?.experience?.length > 0 && (
+                <div>
+                    <h2 className="font-bold text-lg mb-3 border-b pb-2">
+                        {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                    </h2>
+                    <div className="space-y-4">
+                        {resumeData.experience.map((exp, index) => (
+                            <div key={index} className="mb-3">
+                                <div className="flex flex-wrap justify-between items-center">
+                                    <div>
+                                        <h3 className="font-bold">{exp.position || 'Position'}</h3>
+                                        <div className="font-semibold text-gray-700">
+                                            {exp.company || 'Company'}
+                                        </div>
+                                    </div>
+                                    <span className="text-gray-600">{exp.duration || 'Duration'}</span>
+                                </div>
+                                <p className="text-gray-600 mt-2">
+                                    {exp.responsibilities || 'Responsibilities and achievements...'}
+                                </p>
+                                {exp.technologies && (
+                                    <div className="mt-2">
+                                        <span className="font-medium">Technologies: </span>
+                                        {renderTechnologyTags(exp.technologies)}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Education */}
+            {resumeData?.education?.length > 0 && (
+                <div>
+                    <h2 className="font-bold text-lg mb-3 border-b pb-2">Education</h2>
+                    <div className="space-y-4">
+                        {resumeData.education.map((edu, index) => (
+                            <div key={index} className="mb-3">
+                                <div className="flex flex-wrap justify-between">
+                                    <h3 className="font-bold">{edu.degree || 'Degree'}</h3>
+                                    <span className="text-gray-600">{edu.duration || 'Year'}</span>
+                                </div>
+                                <div className="font-semibold text-gray-700">
+                                    {edu.institution || 'Institution'}
+                                </div>
+                                <p className="text-gray-600">
+                                    {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
+                                </p>
+                                {edu.school && <p className="text-gray-600">School: {edu.school}</p>}
+                                {edu.achievements && <p className="text-gray-600 mt-1">Achievements: {edu.achievements}</p>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Projects */}
+            {resumeData?.projects?.length > 0 && (
+                <div>
+                    <h2 className="font-bold text-lg mb-3 border-b pb-2">Projects</h2>
+                    <div className="space-y-4">
+                        {resumeData.projects.map((project, index) => (
+                            <div key={index} className="mb-3">
+                                <div className="flex flex-wrap justify-between items-center">
+                                    <h3 className="font-bold">
+                                        {project.link ? (
+                                            <a
+                                                href={project.link}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-gray-800 hover:underline"
+                                            >
+                                                {project.title}
+                                            </a>
+                                        ) : project.title || 'Project Name'}
+                                    </h3>
+                                    <div>
+                                        {project.duration && (
+                                            <span className="text-gray-600 text-sm mr-2">{project.duration}</span>
+                                        )}
+                                        {project.category && (
+                                            <span className="text-gray-500 text-sm bg-gray-100 px-2 py-1 rounded">
+                                                {project.category}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <p className="text-gray-600 text-sm mt-1">
+                                    {project.description || 'Project description...'}
+                                </p>
+                                {project.technologies && (
+                                    <div className="mt-2">
+                                        <span className="font-medium text-sm">Technologies: </span>
+                                        {renderTechnologyTags(project.technologies)}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Certifications */}
+            {resumeData?.certifications?.length > 0 && (
+                <div>
+                    <h2 className="font-bold text-lg mb-3 border-b pb-2">Certifications</h2>
+                    <div className="space-y-2">
+                        {resumeData.certifications.map((cert, index) => (
+                            <div key={index}>
+                                <div className="font-bold">{cert.name}</div>
+                                <div className="text-gray-600 text-sm">{cert.issuer} | {cert.date}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {renderSkillsSection()}
+            {renderHobbiesSection()}
+        </div>
+    </div>
+);
+
+const renderClassicLayout = () => (
+    <div className="resume-content p-8 min-h-[297mm] bg-white relative" style={{ color: textColor.body }}>
+        <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
+
+        {/* Header */}
+        <motion.div
+            className="text-center mb-8"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+        >
+            <h1 className="text-3xl font-bold mb-1" style={{ color: colors.primary }}>
+                {resumeData?.personal?.name || 'Your Name'}
+            </h1>
+            <p className="text-xl text-gray-600">
+                {resumeData?.personal?.title || 'Professional Title'}
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 mt-3 text-sm text-gray-500">
+                {resumeData?.personal?.email && <span>{icons.email} {resumeData.personal.email}</span>}
+                {resumeData?.personal?.phone && <span>{icons.phone} {resumeData.personal.phone}</span>}
+                {resumeData?.personal?.location && <span>{icons.location} {resumeData.personal.location}</span>}
+                {resumeData?.personal?.linkedin && <span>{icons.linkedin} {resumeData.personal.linkedin}</span>}
+                {resumeData?.personal?.portfolio && <span>{icons.portfolio} {resumeData.personal.portfolio}</span>}
+            </div>
+        </motion.div>
+
+        <div className="space-y-8">
+            {/* Summary */}
+            {resumeData?.personal?.summary && (
+                <div className="mb-6">
+                    <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Summary</h2>
+                    <p className="text-gray-700 text-sm">{resumeData.personal.summary}</p>
+                </div>
+            )}
+
+            {/* Experience / Internship */}
+            {resumeData?.experience?.length > 0 && (
+                <div>
+                    <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>
+                        {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                    </h2>
+                    <div className="space-y-4">
+                        {resumeData.experience.map((exp, index) => (
+                            <div key={index} className="pl-4 border-l-2 mb-4" style={{ borderColor: colors.primary }}>
+                                <div className="flex flex-wrap justify-between items-center">
+                                    <h3 className="font-bold text-sm">{exp.position || 'Position'}</h3>
+                                    <span className="text-gray-600 text-sm">{exp.duration || 'Duration'}</span>
+                                </div>
+                                <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                    {exp.company || 'Company'}
+                                </div>
+                                <p className="text-gray-700 text-sm">
+                                    {exp.responsibilities || 'Responsibilities and achievements...'}
+                                </p>
+                                {exp.technologies && (
+                                    <div className="mt-2">
+                                        <span className="font-medium text-sm">Technologies: </span>
+                                        {renderTechnologyTags(exp.technologies)}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Education */}
+            {resumeData?.education?.length > 0 && (
+                <div>
+                    <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Education</h2>
+                    <div className="space-y-4">
+                        {resumeData.education.map((edu, index) => (
+                            <div key={index} className="pl-4 border-l-2 mb-4" style={{ borderColor: colors.primary }}>
+                                <div className="flex flex-wrap justify-between">
+                                    <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
+                                    <span className="text-gray-600 text-sm">{edu.duration || 'Year'}</span>
+                                </div>
+                                <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                    {edu.institution || 'Institution'}
+                                </div>
+                                {edu.field && (
+                                    <p className="text-gray-700 text-sm">{edu.field}</p>
+                                )}
+                                {edu.cgpa && (
+                                    <p className="text-gray-700 text-sm">CGPA: {edu.cgpa}</p>
+                                )}
+                                {edu.school && (
+                                    <p className="text-gray-700 text-sm">School: {edu.school}</p>
+                                )}
+                                {edu.achievements && (
+                                    <p className="text-gray-700 text-sm mt-1">Achievements: {edu.achievements}</p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Skills */}
+            {(resumeData?.softSkills?.length > 0 ||
+                resumeData?.programmingSkills?.length > 0 ||
+                resumeData?.frameworks?.length > 0 ||
+                resumeData?.languages?.length > 0 ||
+                resumeData?.certifications?.length > 0) && (
+                    <div>
+                        <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Skills</h2>
+                        <div className="pl-4 border-l-2" style={{ borderColor: colors.primary }}>
+                            {renderSkillsSection()}
+                        </div>
+                    </div>
+                )}
+
+            {/* Projects */}
+            {resumeData?.projects?.length > 0 && (
+                <div>
+                    <h2 className="font-bold text-lg mb-3 pb-2" style={{ borderBottom: `2px solid ${colors.primary}` }}>Projects</h2>
+                    <div className="space-y-4">
+                        {resumeData.projects.map((project, index) => (
+                            <div key={index} className="pl-4 border-l-2 mb-4" style={{ borderColor: colors.primary }}>
+                                <div className="flex flex-wrap justify-between items-center">
+                                    <h3 className="font-bold text-sm">
+                                        {project.link ? (
+                                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                {project.title}
+                                            </a>
+                                        ) : project.title || 'Project Name'}
+                                    </h3>
+                                    <div>
+                                        {project.duration && <span className="text-gray-600 text-sm mr-3">{project.duration}</span>}
+                                        {project.category && (
+                                            <span className="text-gray-500 text-xs bg-gray-100 px-2 py-1 rounded">
+                                                {project.category}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <p className="text-gray-700 text-sm">{project.description || 'Project description...'}</p>
+                                {project.technologies && (
+                                    <div className="mt-2">
+                                        <span className="font-medium text-sm">Technologies: </span>
+                                        {renderTechnologyTags(project.technologies)}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Hobbies */}
+            {renderHobbiesSection()}
+        </div>
+    </div>
+);
+
+const renderSidebarLayout = () => (
+  <div className="resume-content bg-white text-gray-800 min-h-[297mm] p-10 font-sans">
+    <Watermark
+      templateId={resumeData?.template}
+      unlockedTemplates={unlockedTemplates}
+    />
 
     {/* Header */}
-    <div className="mb-12 text-center">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <h1 className="text-4xl font-bold mb-1" style={{ color: colors.primary }}>
-          {resumeData?.personal?.name || 'Your Name'}
-        </h1>
-        <p className="text-xl text-gray-600">
-          {resumeData?.personal?.title || 'Professional Title'}
-        </p>
-      </motion.div>
-    </div>
+    <header className="text-center mb-8">
+      <h1 className="text-3xl font-bold tracking-tight mb-1">
+        {resumeData?.personal?.name || 'John Smith'}
+      </h1>
+      {resumeData?.personal?.title && (
+        <p className="text-base text-gray-600">{resumeData.personal.title}</p>
+      )}
+    </header>
 
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       {/* Sidebar */}
-      <div className="md:col-span-1">
-        <div className="bg-white p-6 rounded-xl shadow-lg mb-8 space-y-6">
-          <div>
-            <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>Contact</h2>
-            <div className="space-y-3">
-              {renderContactItem(icons.email, resumeData?.personal?.email)}
-              {renderContactItem(icons.phone, resumeData?.personal?.phone)}
-              {renderContactItem(icons.location, resumeData?.personal?.location)}
-              {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin, resumeData?.personal?.linkedin)}
-              {renderContactItem(icons.github, resumeData?.personal?.github, resumeData?.personal?.github)}
-              {renderContactItem(icons.website, resumeData?.personal?.website, resumeData?.personal?.website)}
-            </div>
+      <div className="space-y-6">
+        {/* Contact */}
+        <section>
+          <h2 className="text-lg font-semibold border-b border-gray-300 pb-1 mb-3">
+            Contact
+          </h2>
+          <div className="space-y-2 text-sm">
+            {renderContactItem(icons.email, resumeData?.personal?.email)}
+            {renderContactItem(icons.phone, resumeData?.personal?.phone)}
+            {renderContactItem(icons.location, resumeData?.personal?.location)}
+            {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin)}
+            {renderContactItem(icons.github, resumeData?.personal?.github)}
+            {renderContactItem(icons.website, resumeData?.personal?.website)}
           </div>
-          {renderSkillsSection()}
-          {renderHobbiesSection()}
-        </div>
+        </section>
+
+        {/* Skills */}
+          <section>
+            <h2 className="text-lg font-semibold border-b border-gray-300 pb-1 mb-3">
+              Skills
+            </h2>
+            <div className="space-y-2 text-sm">
+              {renderSkillsSection()}
+            </div>
+          </section>
+
+        {/* Hobbies - Modified for consistency */}
+          <section>
+            <h2 className="text-lg font-semibold border-b border-gray-300 pb-1 mb-3">
+              {renderHobbiesSection()}
+            </h2>
+          </section>
       </div>
 
       {/* Main Content */}
       <div className="md:col-span-2 space-y-8">
+        {/* About Me */}
         {resumeData?.personal?.summary && (
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>About Me</h2>
-            <p className="text-gray-700">{resumeData.personal.summary}</p>
-          </div>
+          <section>
+            <h2 className="text-lg font-semibold border-b border-gray-300 pb-1 mb-3">
+              About Me
+            </h2>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              {resumeData.personal.summary}
+            </p>
+          </section>
         )}
 
+        {/* Experience */}
         {resumeData?.experience?.length > 0 && (
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>
+          <section>
+            <h2 className="text-lg font-semibold border-b border-gray-300 pb-1 mb-3">
               {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
             </h2>
             <div className="space-y-4">
               {resumeData.experience.map((exp, index) => (
-                <div key={index} className="mb-6">
-                  <div className="flex justify-between items-center mb-2">
+                <div key={index}>
+                  <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-lg" style={{ color: colors.primary }}>{exp.position || 'Position'}</h3>
-                      <div className="font-semibold">{exp.company || 'Company'}</div>
+                      <h3 className="font-semibold text-base">{exp.position}</h3>
+                      <p className="text-sm">{exp.company}</p>
                     </div>
-                    <span className="text-gray-600 text-sm bg-gray-100 px-3 py-1 rounded">
-                      {exp.duration || 'Duration'}
-                    </span>
+                    <span className="text-xs text-gray-600">{exp.duration}</span>
                   </div>
-                  <p className="text-gray-700 text-sm">{exp.responsibilities || 'Responsibilities and achievements...'}</p>
-                  {exp.technologies?.length > 0 && (
+                  <ul className="list-disc list-inside text-sm text-gray-700 mt-1 space-y-1">
+                    {exp.responsibilities?.split('•').filter(Boolean).map((point, i) => (
+                      <li key={i}>{point.trim()}</li>
+                    ))}
+                  </ul>
+                  {exp.technologies && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {renderTechnologyTags(exp.technologies)}
                     </div>
@@ -2065,44 +2155,44 @@ const renderCreativeLayout = () => (
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Education */}
           {resumeData?.education?.length > 0 && (
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>Education</h2>
+            <section>
+              <h2 className="text-lg font-semibold border-b border-gray-300 pb-1 mb-3">
+                Education
+              </h2>
               <div className="space-y-4">
                 {resumeData.education.map((edu, index) => (
-                  <div key={index} className="mb-4">
+                  <div key={index}>
                     <div className="flex justify-between">
-                      <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
-                      <span className="text-gray-600 text-xs">{edu.duration || 'Year'}</span>
+                      <h3 className="font-semibold text-sm">{edu.degree}</h3>
+                      <span className="text-xs text-gray-600">{edu.duration}</span>
                     </div>
-                    <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
-                      {edu.institution || 'Institution'}
-                    </div>
-                    <p className="text-gray-700 text-xs">
-                      {edu.field || 'Field of Study'} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
+                    <p className="text-sm">{edu.institution}</p>
+                    <p className="text-xs text-gray-700">
+                      {edu.field} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
                     </p>
-                    {edu.school && <p className="text-gray-700 text-xs">School: {edu.school}</p>}
-                    {edu.achievements && <p className="text-gray-700 text-xs mt-1">Achievements: {edu.achievements}</p>}
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
           {/* Projects */}
           {resumeData?.projects?.length > 0 && (
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>Projects</h2>
+            <section>
+              <h2 className="text-lg font-semibold border-b border-gray-300 pb-1 mb-3">
+                Projects
+              </h2>
               <div className="space-y-4">
                 {resumeData.projects.map((project, index) => (
-                  <div key={index} className="mb-4">
+                  <div key={index}>
                     <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-sm">
+                      <h3 className="font-semibold text-sm">
                         {project.link ? (
                           <a
                             href={project.link}
@@ -2112,18 +2202,16 @@ const renderCreativeLayout = () => (
                           >
                             {project.title}
                           </a>
-                        ) : (
-                          project.title || 'Project Name'
-                        )}
+                        ) : project.title}
                       </h3>
                       {project.category && (
-                        <span className="text-gray-500 text-xs bg-gray-100 px-2 py-1 rounded">
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                           {project.category}
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-700 text-xs">{project.description || 'Project description...'}</p>
-                    {project.technologies?.length > 0 && (
+                    <p className="text-sm text-gray-700 mt-1">{project.description}</p>
+                    {project.technologies && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {renderTechnologyTags(project.technologies)}
                       </div>
@@ -2131,7 +2219,7 @@ const renderCreativeLayout = () => (
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>
@@ -2139,70 +2227,837 @@ const renderCreativeLayout = () => (
   </div>
 );
 
+const renderCreativeLayout = () => (
+    <div className="resume-content p-8 min-h-[297mm] bg-gray-50 relative">
+        <Watermark unlockedTemplates={unlockedTemplates} templateId={resumeData?.template} />
+        {/* Header */}
+        <div className="mb-12 text-center">
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                <h1 className="text-4xl font-bold mb-1" style={{ color: colors.primary }}>
+                    {resumeData?.personal?.name || 'Your Name'}
+                </h1>
+                <p className="text-xl text-gray-600">
+                    {resumeData?.personal?.title || 'Professional Title'}
+                </p>
+            </motion.div>
+        </div>
 
-  const renderCompactLayout = () => (
-  <div className="resume-content bg-white text-gray-800 min-h-[297mm] flex flex-col md:flex-row">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Sidebar */}
+            <div className="md:col-span-1">
+                <div className="bg-white p-6 rounded-xl shadow-lg mb-8 space-y-6" style={{ color: textColor.body }}>
+                    <div>
+                        <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>Contact</h2>
+                        <div className="space-y-3">
+                            {renderContactItem(icons.email, resumeData?.personal?.email)}
+                            {renderContactItem(icons.phone, resumeData?.personal?.phone)}
+                            {renderContactItem(icons.location, resumeData?.personal?.location)}
+                            {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin, resumeData?.personal?.linkedin)}
+                            {renderContactItem(icons.github, resumeData?.personal?.github, resumeData?.personal?.github)}
+                            {renderContactItem(icons.website, resumeData?.personal?.website, resumeData?.personal?.website)}
+                        </div>
+                    </div>
+                    {renderSkillsSection()}
+                    {renderHobbiesSection()}
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="md:col-span-2 space-y-8">
+                {resumeData?.personal?.summary && (
+                    <div className="bg-white p-6 rounded-xl shadow-lg" style={{ color: textColor.body }}>
+                        <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>About Me</h2>
+                        <p className="text-gray-700">{resumeData.personal.summary}</p>
+                    </div>
+                )}
+
+                {resumeData?.experience?.length > 0 && (
+                    <div className="bg-white p-6 rounded-xl shadow-lg" style={{ color: textColor.body }}>
+                        <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>
+                            {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                        </h2>
+                        <div className="space-y-4">
+                            {resumeData.experience.map((exp, index) => (
+                                <div key={index} className="mb-6">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div>
+                                            <h3 className="font-bold text-lg" style={{ color: colors.primary }}>{exp.position || 'Position'}</h3>
+                                            <div className="font-semibold">{exp.company || 'Company'}</div>
+                                        </div>
+                                        <span className="text-gray-600 text-sm bg-gray-100 px-3 py-1 rounded">
+                                            {exp.duration || 'Duration'}
+                                        </span>
+                                    </div>
+                                    <p className="text-gray-700 text-sm">{exp.responsibilities || 'Responsibilities and achievements...'}</p>
+                                    {exp.technologies?.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {renderTechnologyTags(exp.technologies)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Education */}
+                    {resumeData?.education?.length > 0 && (
+                        <div className="bg-white p-6 rounded-xl shadow-lg" style={{ color: textColor.body }}>
+                            <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>Education</h2>
+                            <div className="space-y-4">
+                                {resumeData.education.map((edu, index) => (
+                                    <div key={index} className="mb-4">
+                                        <div className="flex justify-between">
+                                            <h3 className="font-bold text-sm">{edu.degree || 'Degree'}</h3>
+                                            <span className="text-gray-600 text-xs">{edu.duration || 'Year'}</span>
+                                        </div>
+                                        <div className="font-semibold mb-1 text-sm" style={{ color: colors.primary }}>
+                                            {edu.institution || 'Institution'}
+                                        </div>
+                                        <p className="text-gray-700 text-xs">
+                                            <p className="text-xs text-gray-700">
+  {`${edu.field || 'Field of Study'}${edu.cgpa ? ` | CGPA: ${edu.cgpa}` : ''}`}
+</p>
+
+                                        </p>
+                                        {edu.school && <p className="text-gray-700 text-xs">School: {edu.school}</p>}
+                                        {edu.achievements && <p className="text-gray-700 text-xs mt-1">Achievements: {edu.achievements}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Projects */}
+                    {resumeData?.projects?.length > 0 && (
+                        <div className="bg-white p-6 rounded-xl shadow-lg" style={{ color: textColor.body }}>
+                            <h2 className="font-bold text-xl mb-4 pb-2 border-b" style={{ borderColor: colors.primary }}>Projects</h2>
+                            <div className="space-y-4">
+                                {resumeData.projects.map((project, index) => (
+                                    <div key={index} className="mb-4">
+                                        <div className="flex justify-between items-center">
+                                            <h3 className="font-bold text-sm">
+                                                {project.link ? (
+                                                    <a
+                                                        href={project.link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-indigo-600 hover:underline"
+                                                    >
+                                                        {project.title}
+                                                    </a>
+                                                ) : project.title || 'Project Name'}
+                                            </h3>
+                                            {project.category && (
+                                                <span className="text-gray-500 text-xs bg-gray-100 px-2 py-1 rounded">
+                                                    {project.category}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-gray-700 text-xs">{project.description || 'Project description...'}</p>
+                                        {project.technologies?.length > 0 && (
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                {renderTechnologyTags(project.technologies)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+const renderCompactLayout = () => (
+    <div className="resume-content bg-white text-gray-800 min-h-[297mm] flex flex-col md:flex-row">
+        <Watermark unlockedTemplates={unlockedTemplates} templateId={resumeData?.template} />
+
+        {/* Sidebar */}
+        <aside className="bg-gray-100 md:w-1/3 w-full p-6 md:sticky md:top-0 md:h-screen flex flex-col items-center">
+            {/* Name & Title */}
+            <h1 className="text-2xl font-bold text-center mb-1" style={{ color: colors.primary }}>
+                {resumeData?.personal?.name || 'Your Name'}
+            </h1>
+            <p className="text-sm text-gray-600 text-center mb-6">
+                {resumeData?.personal?.title || 'Professional Title'}
+            </p>
+
+            {/* Contact Info */}
+            <div className="w-full" style={{ color: textColor.body }}>
+                <h2 className="font-semibold text-lg border-b pb-1 mb-4" style={{ borderColor: colors.primary }}>Contact</h2>
+                <div className="space-y-2">
+                    {renderContactItem(icons.email, resumeData?.personal?.email)}
+                    {renderContactItem(icons.phone, resumeData?.personal?.phone)}
+                    {renderContactItem(icons.location, resumeData?.personal?.location)}
+                    {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin)}
+                    {renderContactItem(icons.github, resumeData?.personal?.github)}
+                    {renderContactItem(icons.website, resumeData?.personal?.website)}
+                </div>
+            </div>
+
+            {/* Skills & Hobbies */}
+            <div className="mt-8 w-full space-y-6">
+                {renderSkillsSection()}
+                {renderHobbiesSection?.()}
+            </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 p-6 space-y-8" style={{ color: textColor.body }}>
+            {/* Summary */}
+            {resumeData?.personal?.summary && (
+                <section className="bg-gray-50 p-5 rounded-xl shadow-sm">
+                    <h2 className="text-xl font-bold mb-2 border-b pb-1" style={{ borderColor: colors.primary }}>About Me</h2>
+                    <p className="text-gray-700 text-sm">{resumeData.personal.summary}</p>
+                </section>
+            )}
+
+            {/* Experience */}
+            {resumeData?.experience?.length > 0 && (
+                <section className="bg-gray-50 p-5 rounded-xl shadow-sm">
+                    <h2 className="text-xl font-bold mb-4 pb-1 border-b" style={{ borderColor: colors.primary }}>
+                        {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
+                    </h2>
+                    <div className="space-y-4">
+                        {resumeData.experience.map((exp, index) => (
+                            <div key={index}>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <h3 className="font-semibold text-base" style={{ color: colors.primary }}>{exp.position}</h3>
+                                        <p className="text-sm">{exp.company}</p>
+                                    </div>
+                                    <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">{exp.duration}</span>
+                                </div>
+                                <p className="text-sm text-gray-700 mt-1">{exp.responsibilities}</p>
+                                {exp.technologies && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                        {renderTechnologyTags(exp.technologies)}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {/* Education & Projects in Grid */}
+            <div className="grid md:grid-cols-2 grid-cols-1 gap-6">
+                {/* Education */}
+                {resumeData?.education?.length > 0 && (
+                    <section className="bg-gray-50 p-5 rounded-xl shadow-sm">
+                        <h2 className="text-xl font-bold mb-3 border-b pb-1" style={{ borderColor: colors.primary }}>Education</h2>
+                        {resumeData.education.map((edu, index) => (
+                            <div key={index} className="mb-3">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="font-semibold text-sm">{edu.degree}</h3>
+                                    <span className="text-xs text-gray-600">{edu.duration}</span>
+                                </div>
+                                <p className="text-sm" style={{ color: colors.primary }}>{edu.institution}</p>
+                                <p className="text-xs text-gray-700">{edu.field} {edu.cgpa && `| CGPA: ${edu.cgpa}`}</p>
+                                {edu.school && <p className="text-xs text-gray-700">School: {edu.school}</p>}
+                                {edu.achievements && <p className="text-xs text-gray-700 mt-1">Achievements: {edu.achievements}</p>}
+                            </div>
+                        ))}
+                    </section>
+                )}
+
+                {/* Projects */}
+                {resumeData?.projects?.length > 0 && (
+                    <section className="bg-gray-50 p-5 rounded-xl shadow-sm">
+                        <h2 className="text-xl font-bold mb-3 border-b pb-1" style={{ borderColor: colors.primary }}>Projects</h2>
+                        {resumeData.projects.map((project, index) => (
+                            <div key={index} className="mb-3">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="font-semibold text-sm">
+                                        {project.link ? (
+                                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                {project.title}
+                                            </a>
+                                        ) : project.title}
+                                    </h3>
+                                    {project.category && (
+                                        <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{project.category}</span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-gray-700">{project.description}</p>
+                                {project.technologies && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                        <span className="font-medium text-xs">Tech: </span>
+                                        {renderTechnologyTags(project.technologies)}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </section>
+                )}
+            </div>
+        </main>
+    </div>
+);
+
+const renderProfessionalClassicLayout = () => (
+  <div className="resume-content bg-white text-gray-800 min-h-[297mm] p-8 font-sans">
+    <Watermark
+      templateId={resumeData?.template}
+      unlockedTemplates={unlockedTemplates}
+    />
+
+    {/* Header */}
+    <header
+      className="text-center mb-6 border-b pb-4"
+      style={{ borderColor: colors.primary }}
+    >
+      <h1
+        className="text-3xl font-bold tracking-tight mb-1"
+        style={{ color: colors.primary }}
+      >
+        {resumeData?.personal?.name || "Your Name"}
+      </h1>
+      {resumeData?.personal?.title && (
+        <p className="text-lg text-gray-600">{resumeData.personal.title}</p>
+      )}
+    </header>
+
+    {/* Contact Info */}
+    <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-8 text-sm">
+      {renderContactItem(icons.phone, resumeData?.personal?.phone)}
+      {renderContactItem(icons.email, resumeData?.personal?.email)}
+      {renderContactItem(icons.location, resumeData?.personal?.location)}
+      {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin)}
+      {renderContactItem(icons.github, resumeData?.personal?.github)}
+      {renderContactItem(icons.website, resumeData?.personal?.portfolio)}
+    </div>
+
+    {/* Two Column Layout */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* LEFT COLUMN */}
+      <div className="md:col-span-2 space-y-6">
+        {/* Summary */}
+        {resumeData?.personal?.summary && (
+          <section>
+            <SectionHeader
+              title="Summary"
+              color={colors.primary}
+            />
+            <p className="text-gray-700 text-sm leading-relaxed">
+              {resumeData.personal.summary}
+            </p>
+          </section>
+        )}
+
+        {/* Experience */}
+        {resumeData?.experience?.length > 0 && (
+          <section>
+            <SectionHeader
+              title={
+                resumeData.experience[0]?.isInternship
+                  ? "Internship"
+                  : "Work Experience"
+              }
+              color={colors.primary}
+            />
+            <div className="space-y-5">
+              {resumeData.experience.map((exp, index) => (
+                <div key={index} className="mb-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3
+                        className="font-semibold text-base"
+                        style={{ color: colors.primary }}
+                      >
+                        {exp.position}
+                      </h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">
+                          {exp.company}
+                        </span>
+                        {exp.link && (
+                          <a
+                            href={exp.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-blue-600 hover:underline flex items-center"
+                          >
+                            <LinkIcon className="w-3 h-3 mr-1" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    {exp.duration && (
+                      <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                        {exp.duration}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Responsibilities */}
+                  {exp.responsibilities && (
+                    <ul className="list-disc list-inside text-sm text-gray-700 mt-2 space-y-1 pl-2">
+                      {exp.responsibilities
+                        .split("•")
+                        .filter(Boolean)
+                        .map((point, i) => (
+                          <li key={i}>{point.trim()}</li>
+                        ))}
+                    </ul>
+                  )}
+
+                  {/* Technologies */}
+                  {exp.technologies && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-medium text-gray-600">
+                        Technologies:
+                      </span>
+                      {renderTechnologyTags(exp.technologies)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Projects */}
+        {resumeData?.projects?.length > 0 && (
+          <section>
+            <SectionHeader title="Projects" color={colors.primary} />
+            <div className="space-y-4">
+              {resumeData.projects.map((project, index) => (
+                <div key={index} className="mb-3">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-semibold text-sm">
+                      {project.link ? (
+                        <a
+                          href={project.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          {project.title}
+                        </a>
+                      ) : (
+                        project.title
+                      )}
+                    </h3>
+                    {project.duration && (
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                        {project.duration}
+                      </span>
+                    )}
+                  </div>
+
+                  {project.category && (
+                    <span className="block text-xs text-gray-500 mt-0.5">
+                      {project.category}
+                    </span>
+                  )}
+
+                  {project.description && (
+                    <p className="text-xs text-gray-700 mt-1 text-left">
+                      {project.description}
+                    </p>
+                  )}
+
+                  {project.technologies && (
+                    <div className="mt-2">
+                      <span className="text-xs font-medium text-gray-600">
+                        Technologies Used:
+                      </span>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {renderTechnologyTags(project.technologies)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* RIGHT COLUMN */}
+      <div className="space-y-6">
+       {/* Skills */}
+{(
+  resumeData?.softSkills?.length > 0 ||
+  resumeData?.programmingSkills?.length > 0 ||
+  resumeData?.frameworks?.length > 0 ||
+  resumeData?.languages?.length > 0 ||
+  resumeData?.certifications?.length > 0
+) && (
+  <section>
+    <SectionHeader title="Skills" color={colors.primary} />
+    <div className="space-y-4 mt-3">
+      
+      {/* Soft Skills */}
+      {resumeData?.softSkills?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-gray-800 text-sm">Soft Skills</h3>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {resumeData.softSkills.map((skill, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-xs font-medium"
+              >
+                {getStringValue(skill)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Programming Skills */}
+      {resumeData?.programmingSkills?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-gray-800 text-sm">Programming Skills</h3>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {resumeData.programmingSkills.map((skill, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-xs font-medium"
+              >
+                {getStringValue(skill)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Frameworks */}
+      {resumeData?.frameworks?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-gray-800 text-sm">Frameworks</h3>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {resumeData.frameworks.map((skill, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-xs font-medium"
+              >
+                {getStringValue(skill)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Languages */}
+      {resumeData?.languages?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-gray-800 text-sm">Languages</h3>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {resumeData.languages.map((lang, idx) => {
+              const langName = getStringValue(lang);
+              return (
+                <span
+                  key={idx}
+                  className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-xs font-medium"
+                >
+                  {langName}{lang.level ? ` (${lang.level})` : ''}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Certifications */}
+      {resumeData?.certifications?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-gray-800 text-sm">Certifications</h3>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {resumeData.certifications.map((cert, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-xs font-medium"
+              >
+                {getStringValue(cert)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  </section>
+)}
+
+        {/* Education */}
+        {resumeData?.education?.length > 0 && (
+          <section>
+            <SectionHeader title="Education" color={colors.primary} />
+            {resumeData.education.map((edu, index) => (
+              <div key={index} className="mb-3">
+                {edu.degree && (
+                  <h3 className="font-semibold text-sm">{edu.degree}</h3>
+                )}
+                {edu.institution && (
+                  <p className="text-sm" style={{ color: colors.primary }}>
+                    {edu.institution}
+                  </p>
+                )}
+                {edu.duration && (
+                  <p className="text-xs text-gray-600">{edu.duration}</p>
+                )}
+                {(edu.field || edu.cgpa) && (
+                  <p className="text-xs text-gray-700 mt-1">
+                    {edu.field}{" "}
+                    {edu.cgpa && (
+                      <span className="ml-1">| CGPA: {edu.cgpa}</span>
+                    )}
+                  </p>
+                )}
+                {edu.school && (
+                  <p className="text-gray-700 text-xs mt-1">
+                    <span className="font-medium">High School:</span>{" "}
+                    {typeof edu.school === "object"
+                      ? edu.school.name
+                      : edu.school}
+                  </p>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
+        
+{/* Interests */}
+{resumeData?.hobbies?.length > 0 && (
+  <section>
+    <SectionHeader
+      title="Interests"
+      color={colors.primary}
+    />
+    <p className="text-gray-700 text-sm leading-relaxed">
+      {resumeData.hobbies
+        .map((hobby) => (typeof hobby === 'object' ? hobby.name : hobby))
+        .join(', ')}
+    </p>
+  </section>
+)}
+      </div>
+    </div>
+  </div>
+);
+
+
+const renderModernTechLayout = () => (
+  <div className="resume-content bg-white text-gray-800 min-h-[297mm] p-8 font-sans text-sm">
     <Watermark templateId={resumeData?.template} unlockedTemplates={unlockedTemplates} />
 
-    {/* Sidebar */}
-    <aside className="bg-gray-100 md:w-1/3 w-full p-6 md:sticky md:top-0 md:h-screen flex flex-col items-center">
-      {/* Name & Title */}
-      <h1 className="text-2xl font-bold text-center mb-1" style={{ color: colors.primary }}>
+    {/* Centered Header */}
+    <header className="text-center mb-6">
+      <h1 className="text-xl font-bold uppercase mb-1" style={{ color: colors.primary }}>
         {resumeData?.personal?.name || 'Your Name'}
       </h1>
-      <p className="text-sm text-gray-600 text-center mb-6">
-        {resumeData?.personal?.title || 'Professional Title'}
-      </p>
+      {resumeData?.personal?.title && (
+        <p className="text-sm text-gray-600">{resumeData.personal.title}</p>
+      )}
 
-      {/* Contact Info */}
-      <div className="w-full">
-        <h2 className="font-semibold text-lg border-b pb-1 mb-4" style={{ borderColor: colors.primary }}>Contact</h2>
-        <div className="space-y-2">
-          {renderContactItem(icons.email, resumeData?.personal?.email)}
-          {renderContactItem(icons.phone, resumeData?.personal?.phone)}
-          {renderContactItem(icons.location, resumeData?.personal?.location)}
-          {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin)}
-          {renderContactItem(icons.github, resumeData?.personal?.github)}
-          {renderContactItem(icons.website, resumeData?.personal?.website)}
-        </div>
+      {/* Centered Contact Info */}
+      <div className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+        {renderContactItem(icons.email, resumeData?.personal?.email)}
+        {renderContactItem(icons.phone, resumeData?.personal?.phone)}
+        {renderContactItem(icons.location, resumeData?.personal?.location)}
+        {renderContactItem(icons.linkedin, resumeData?.personal?.linkedin)}
+        {renderContactItem(icons.github, resumeData?.personal?.github)}
+        {renderContactItem(icons.website, resumeData?.personal?.portfolio)}
       </div>
+    </header>
 
-      {/* Skills & Hobbies */}
-      <div className="mt-8 w-full space-y-6">
-        {renderSkillsSection()}
-        {renderHobbiesSection?.()}
-      </div>
-    </aside>
-
-    {/* Main Content */}
-    <main className="flex-1 p-6 space-y-8">
+    {/* One Column Layout */}
+    <div className="space-y-6 max-w-3xl mx-auto">
       {/* Summary */}
       {resumeData?.personal?.summary && (
-        <section className="bg-gray-50 p-5 rounded-xl shadow-sm">
-          <h2 className="text-xl font-bold mb-2 border-b pb-1" style={{ borderColor: colors.primary }}>About Me</h2>
-          <p className="text-gray-700 text-sm">{resumeData.personal.summary}</p>
+        <section>
+          <CenteredSectionHeader title="Profile" color={colors.primary} />
+          <hr className="border-t-2 mt-1 mb-3" style={{ borderColor: colors.primary }} />
+          <p className="text-gray-700 text-xs leading-relaxed text-center">
+            {resumeData.personal.summary}
+          </p>
+        </section>
+      )}
+
+      {/* Skills */}
+{(
+  resumeData?.softSkills?.length > 0 ||
+  resumeData?.programmingSkills?.length > 0 ||
+  resumeData?.frameworks?.length > 0 ||
+  resumeData?.languages?.length > 0 ||
+  resumeData?.certifications?.length > 0
+) && (
+  <section>
+    {/* Main Skills Heading */}
+    <CenteredSectionHeader title="Skills" color={colors.primary} />
+    <hr className="border-t-2 mt-1 mb-4" style={{ borderColor: colors.primary }} />
+
+    {/* 5 Column Layout for Subheadings */}
+    <div className="grid grid-cols-5 gap-4 text-xs">
+      {/* Soft Skills */}
+      {resumeData?.softSkills?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-blue-600 mb-2">Soft Skills</h3>
+          <div className="flex flex-col gap-1">
+            {resumeData.softSkills.map((skill, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-center font-medium"
+              >
+                {getStringValue(skill)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Programming Skills */}
+      {resumeData?.programmingSkills?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-blue-600 mb-2">Programming Skills</h3>
+          <div className="flex flex-col gap-1">
+            {resumeData.programmingSkills.map((skill, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-center font-medium"
+              >
+                {getStringValue(skill)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Frameworks */}
+      {resumeData?.frameworks?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-blue-600 mb-2">Frameworks</h3>
+          <div className="flex flex-col gap-1">
+            {resumeData.frameworks.map((skill, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-center font-medium"
+              >
+                {getStringValue(skill)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Languages */}
+      {resumeData?.languages?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-blue-600 mb-2">Languages</h3>
+          <div className="flex flex-col gap-1">
+            {resumeData.languages.map((lang, idx) => {
+              const langName = getStringValue(lang);
+              return (
+                <span
+                  key={idx}
+                  className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-center font-medium"
+                >
+                  {langName}{lang.level ? ` (${lang.level})` : ''}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Certifications */}
+      {resumeData?.certifications?.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-blue-600 mb-2">Certifications</h3>
+          <div className="flex flex-col gap-1">
+            {resumeData.certifications.map((cert, idx) => {
+              const certName = getStringValue(cert);
+              return (
+                <span
+                  key={idx}
+                  className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-center font-medium"
+                >
+                  {certName}{cert.issuer ? ` (${cert.issuer})` : ''}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  </section>
+)}
+
+      {/* Education */}
+      {resumeData?.education?.length > 0 && (
+        <section>
+          <CenteredSectionHeader title="Education" color={colors.primary} />
+          <hr className="border-t-2 mt-1 mb-3" style={{ borderColor: colors.primary }} />
+          <div className="space-y-2 text-center text-xs">
+            {resumeData.education.map((edu, index) => (
+              <div key={index}>
+                <h3 className="font-semibold">{edu.degree}</h3>
+                <p style={{ color: colors.primary }}>{edu.institution}</p>
+                <p className="text-[10px] text-gray-600">{edu.duration}</p>
+                <p className="text-[10px] text-gray-700 mt-1">
+                  {edu.field} {edu.cgpa && `| CGPA: ${edu.cgpa}`}
+                </p>
+                 {edu.school && (
+  <p className="text-gray-700 text-sm mt-1">
+    <span className="font-medium">High School:</span>{" "}
+    {typeof edu.school === "object" ? edu.school.name : edu.school}
+  </p>
+)}
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
       {/* Experience */}
       {resumeData?.experience?.length > 0 && (
-        <section className="bg-gray-50 p-5 rounded-xl shadow-sm">
-          <h2 className="text-xl font-bold mb-4 pb-1 border-b" style={{ borderColor: colors.primary }}>
-            {resumeData.experience[0]?.isInternship ? 'Internship' : 'Experience'}
-          </h2>
-          <div className="space-y-4">
+        <section>
+          <CenteredSectionHeader
+            title={resumeData.experience[0]?.isInternship ? 'Internship Experience' : 'Work Experience'}
+            color={colors.primary}
+          />
+          <hr className="border-t-2 mt-1 mb-3" style={{ borderColor: colors.primary }} />
+          <div className="space-y-5">
             {resumeData.experience.map((exp, index) => (
-              <div key={index}>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-semibold text-base" style={{ color: colors.primary }}>{exp.position}</h3>
-                    <p className="text-sm">{exp.company}</p>
+              <div key={index} className="text-center text-xs">
+                <div className="flex flex-col items-center mb-1.5">
+                  <h3 className="font-semibold" style={{ color: colors.primary }}>
+                    {exp.position}
+                  </h3>
+                  <div className="flex items-center gap-1 flex-wrap justify-center font-medium">
+                    <span>{exp.company}</span>
+                    {exp.link && (
+                      <a href={exp.link} className="text-blue-600 hover:underline flex items-center">
+                        <LinkIcon className="w-3 h-3 mr-1" />
+                      </a>
+                    )}
                   </div>
-                  <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">{exp.duration}</span>
+                  <span className="text-[10px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded mt-0.5">
+                    {exp.duration}
+                  </span>
                 </div>
-                <p className="text-sm text-gray-700 mt-1">{exp.responsibilities}</p>
+
+                <div className="mt-1.5 text-left">
+                  {exp.responsibilities && (
+                    <ul className="list-disc list-inside space-y-1 pl-4">
+                      {exp.responsibilities.split('•').filter(Boolean).map((point, i) => (
+                        <li key={i}>{point.trim()}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
                 {exp.technologies && (
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <div className="mt-2 flex flex-wrap justify-center gap-1">
                     {renderTechnologyTags(exp.technologies)}
                   </div>
                 )}
@@ -2212,59 +3067,107 @@ const renderCreativeLayout = () => (
         </section>
       )}
 
-      {/* Education & Projects in Grid */}
-      <div className="grid md:grid-cols-2 grid-cols-1 gap-6">
-        {/* Education */}
-        {resumeData?.education?.length > 0 && (
-          <section className="bg-gray-50 p-5 rounded-xl shadow-sm">
-            <h2 className="text-xl font-bold mb-3 border-b pb-1" style={{ borderColor: colors.primary }}>Education</h2>
-            {resumeData.education.map((edu, index) => (
-              <div key={index} className="mb-3">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-sm">{edu.degree}</h3>
-                  <span className="text-xs text-gray-600">{edu.duration}</span>
-                </div>
-                <p className="text-sm" style={{ color: colors.primary }}>{edu.institution}</p>
-                <p className="text-xs text-gray-700">{edu.field} {edu.cgpa && `| CGPA: ${edu.cgpa}`}</p>
-                {edu.school && <p className="text-xs text-gray-700">School: {edu.school}</p>}
-                {edu.achievements && <p className="text-xs text-gray-700 mt-1">Achievements: {edu.achievements}</p>}
-              </div>
-            ))}
-          </section>
-        )}
+ {resumeData?.projects?.length > 0 && (
+  <section>
+    <CenteredSectionHeader title="Projects" color={colors.primary} />
+    <hr
+      className="border-t-2 mt-1 mb-3"
+      style={{ borderColor: colors.primary }}
+    />
+    <div className="space-y-3">
+      {resumeData.projects.map((project, index) => (
+        <div key={index} className="text-xs text-center">
+          {/* Title + Duration */}
+          <div className="flex justify-between items-center mb-0.5">
+            <h3 className="font-semibold text-gray-900 w-full">
+              {project.link ? (
+                <a
+                  href={project.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  {project.title}
+                </a>
+              ) : (
+                project.title
+              )}
+            </h3>
 
-        {/* Projects */}
-        {resumeData?.projects?.length > 0 && (
-          <section className="bg-gray-50 p-5 rounded-xl shadow-sm">
-            <h2 className="text-xl font-bold mb-3 border-b pb-1" style={{ borderColor: colors.primary }}>Projects</h2>
-            {resumeData.projects.map((project, index) => (
-              <div key={index} className="mb-3">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-sm">
-                    {project.link ? (
-                      <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {project.title}
-                      </a>
-                    ) : project.title}
-                  </h3>
-                  {project.category && (
-                    <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{project.category}</span>
-                  )}
-                </div>
-                <p className="text-xs text-gray-700">{project.description}</p>
-                {project.technologies && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <span className="font-medium text-xs">Tech: </span>
-                    {renderTechnologyTags(project.technologies)}
-                  </div>
-                )}
+            {project.duration && (
+              <span className="text-[10px] text-gray-500 font-medium whitespace-nowrap">
+                {project.duration}
+              </span>
+            )}
+          </div>
+
+          {/* Category */}
+          {project.category && (
+            <span className="block text-[10px] text-gray-500 mb-0.5">
+              {project.category}
+            </span>
+          )}
+
+          {/* Description */}
+          {project.description && (
+            <p className="text-[10px] text-gray-700 leading-snug mb-1 text-left">
+              {project.description}
+            </p>
+          )}
+
+          {/* Technologies */}
+          {project.technologies && (
+            <div>
+              <p className="text-[10px] font-medium text-gray-600 mb-0.5">
+                Technologies Used:
+              </p>
+              <div className="flex flex-wrap justify-center gap-1">
+                {renderTechnologyTags(project.technologies)}
               </div>
-            ))}
-          </section>
-        )}
-      </div>
-    </main>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </section>
+)}
+{/* Hobbies */}
+{resumeData?.hobbies?.length > 0 && (
+  <section>
+    <CenteredSectionHeader title="Interests" color={colors.primary} />
+    <hr className="border-t-2 mt-1 mb-3" style={{ borderColor: colors.primary }} />
+
+    <div className="flex flex-wrap justify-center gap-2">
+      {resumeData.hobbies.map((hobby, index) => (
+        <span
+          key={index}
+          className="px-3 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-300"
+        >
+          {typeof hobby === 'object' ? hobby.name : hobby}
+        </span>
+      ))}
+    </div>
+  </section>
+)}
+
+    </div>
   </div>
+);
+
+// Centered Header Component for Modern Tech
+const CenteredSectionHeader = ({ title, color }) => (
+  <h2 className="text-lg font-semibold uppercase tracking-wide mb-4 text-center" 
+      style={{ color }}>
+    {title}
+  </h2>
+);
+
+// Regular Header Component for Professional Classic
+const SectionHeader = ({ title, color }) => (
+  <h2 className="text-lg font-semibold uppercase tracking-wide mb-3 pb-1 border-b" 
+      style={{ borderColor: color }}>
+    {title}
+  </h2>
 );
 
    const mobileStyles = `
@@ -2364,9 +3267,7 @@ return (
           boxSizing: 'border-box',
         }}
       >
-        <div
-          className="resume-content"
-        >
+        <div className="resume-content">
           <div
             ref={resumeContainerRef}
             className="w-full bg-white relative"
@@ -2382,11 +3283,10 @@ return (
       </div>
     </div>
 
-    {/* ⛔ Pagination Removed */}
-
+    {/* Main Download Button */}
     <div className="mt-4 flex flex-wrap justify-center gap-3">
       <button
-        onClick={handleDownload}
+        onClick={() => handleDownloadClick()}  
         disabled={isGeneratingPDF}
         className={`flex items-center px-4 py-2 rounded-md text-white transition-colors ${
           isGeneratingPDF ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
@@ -2433,6 +3333,7 @@ return (
       </button>
     </div>
 
+    {/* Save Status Message */}
     {saveStatus.message && (
       <div
         className={`mt-3 px-4 py-2 rounded-md text-center ${
@@ -2444,8 +3345,85 @@ return (
         {saveStatus.message}
       </div>
     )}
+
+    {/* Watermark Detection Modal */}
+    {showWatermarkModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl transform transition-all">
+          <div className="text-center mb-5">
+            <div className="flex justify-center mb-4">
+              <div className="bg-blue-50 p-3 rounded-full">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-10 w-10 text-blue-500" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={1.5} 
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" 
+                  />
+                </svg>
+              </div>
+            </div>
+            
+            <h3 className="text-xl font-bold mb-2 text-gray-800">
+              Watermark Detected
+            </h3>
+            
+            <p className="text-gray-600">
+              This template includes a watermark preview.
+            </p>
+          </div>
+          
+          <div className="flex flex-col gap-3">
+            {/* Download with Watermark */}
+            <button 
+              onClick={() => handleDownloadClick(true)} // bypass unlock check
+              style={{
+                backgroundColor: '#e5e7eb',
+                color: '#1f2937',
+              }}
+              className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+            >
+              Download with Watermark
+            </button>
+            
+            {/* Remove Watermark */}
+            <button 
+              onClick={() => {
+                setShowWatermarkModal(false);
+                window.scrollTo({
+                  top: document.body.scrollHeight,
+                  behavior: 'smooth'
+                });
+              }}
+              className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center"
+            >
+              Remove Watermark
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          
+          {/* Cancel */}
+          <div className="mt-4 text-center">
+            <button 
+              onClick={() => setShowWatermarkModal(false)}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </div>
 );
-
 });
+
 export default Preview;

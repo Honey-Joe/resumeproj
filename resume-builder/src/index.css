@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 :root {
   font-family: 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif;
   font-weight: 400;
@@ -14,27 +21,27 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* === Resume Container Setup === */
+/* === Resume Container === */
 .resume-container {
   width: 210mm;
   min-height: 297mm;
-  padding: 15mm 15mm; /* Reduced top padding */
-  background-color: #ffffff;
-  color: #333333;
+  padding: 12mm 10mm;
+  background-color: #fff;
+  color: #333;
   font-family: 'Poppins', sans-serif;
-  margin: 0 auto;
+  margin: auto;
   display: flex;
   flex-direction: column;
+  gap: 0.8rem;
   box-sizing: border-box;
-  gap: 1rem; /* Reduced gap */
 }
 
-/* === Heading Styles === */
+/* === Headings === */
 .resume-container h1 {
   font-size: 22pt;
   font-weight: 700;
   text-align: center;
-  margin-bottom: 0.25rem; /* Reduced margin */
+  margin-bottom: 0.25rem;
   line-height: 1.2;
 }
 
@@ -42,30 +49,23 @@
   font-size: 14pt;
   font-weight: 600;
   border-bottom: 2px solid #4f46e5;
-  margin: 0.5rem 0 0.5rem; /* Reduced margin */
-  padding-bottom: 0.25rem; /* Reduced padding */
+  margin: 0.5rem 0;
+  padding-bottom: 0.25rem;
   line-height: 1.3;
   color: #1e293b;
-  @apply avoid-break;
 }
 
 .resume-container h3 {
   font-size: 11pt;
   font-weight: 600;
-  margin: 0.4rem 0 0.2rem; /* Reduced margin */
+  margin: 0.4rem 0 0.2rem;
   line-height: 1.2;
   color: #334155;
 }
 
-/* === Section Margins === */
+/* === Sections === */
 .resume-section {
-  margin-bottom: 1rem; /* Reduced margin */
-   @apply avoid-break;
-}
-
-.avoid-break {
-    page-break-inside: avoid;
-    break-inside: avoid;
+  margin-bottom: 1rem;
 }
 
 /* === Contact Info === */
@@ -73,11 +73,11 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.6rem 1.2rem; /* Reduced gap */
-  margin-bottom: 1rem; /* Reduced margin */
-  font-size: 9.5pt; /* Smaller font */
+  gap: 0.6rem 1.2rem;
+  margin-bottom: 1rem;
+  font-size: 9.5pt;
   border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 0.75rem; /* Reduced padding */
+  padding-bottom: 0.75rem;
 }
 
 .contact-info span {
@@ -87,171 +87,162 @@
   line-height: 1.3;
 }
 
-/* === List Improvements === */
+/* === Lists === */
 .resume-container ul {
-  padding-left: 1rem; /* Reduced padding */
-  margin: 0.4rem 0; /* Reduced margin */
+  padding-left: 1rem;
+  margin: 0.4rem 0;
 }
 
 .resume-container li {
-  margin-bottom: 0.3rem; /* Reduced margin */
+  margin-bottom: 0.3rem;
   line-height: 1.4;
-  font-size: 9.5pt; /* Smaller font */
+  font-size: 9.5pt;
 }
 
-/* === Chip Section === */
+/* === Chips === */
 .chip-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem; /* Reduced gap */
-  margin-top: 0.4rem; /* Reduced margin */
+  gap: 0.4rem;
+  margin-top: 0.4rem;
 }
 
 .chip {
-  font-size: 8.5pt; /* Smaller font */
+  font-size: 8.5pt;
   background-color: #eef2ff;
-  padding: 0.2rem 0.6rem; /* Reduced padding */
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
   line-height: 1.2;
   color: #4f46e5;
   border: 1px solid #c7d2fe;
 }
 
-/* === Skills Section === */
+/* === Skills === */
 .skills-section {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Smaller min-width */
-  gap: 0.8rem; /* Reduced gap */
-  margin-bottom: 1rem; /* Reduced margin */
-  @apply avoid-break;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
 }
 
 .skill-category {
-  margin-bottom: 0.5rem; /* Reduced margin */
+  margin-bottom: 0.5rem;
 }
 
 .skill-category h3 {
-  font-size: 10pt; /* Smaller font */
+  font-size: 10pt;
   font-weight: 600;
   color: #4f46e5;
-  margin-bottom: 0.4rem; /* Reduced margin */
+  margin-bottom: 0.4rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem; /* Reduced gap */
+  gap: 0.4rem;
 }
 
 .skill-category h3 i {
-  font-size: 10pt; /* Smaller font */
+  font-size: 10pt;
 }
 
 .skill-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem; /* Reduced gap */
+  gap: 0.3rem;
 }
 
-/* === Certifications Section === */
+/* === Certifications === */
 .certification-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.5rem; /* Reduced margin */
-  padding-bottom: 0.3rem; /* Reduced padding */
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.3rem;
   border-bottom: 1px dashed #e2e8f0;
 }
 
 .cert-name {
   font-weight: 500;
-  font-size: 9.5pt; /* Smaller font */
-  flex: 2; /* More space for name */
+  font-size: 9.5pt;
+  flex: 2;
 }
 
 .cert-issuer {
-  font-size: 9pt; /* Smaller font */
+  font-size: 9pt;
   color: #4b5563;
   font-style: italic;
-  flex: 1; /* Less space for issuer */
-  text-align: right; /* Align issuer to right */
+  flex: 1;
+  text-align: right;
 }
 
 /* === Experience & Education === */
 .experience-item,
 .education-item {
-  margin-bottom: 1rem; /* Reduced margin */
+  margin-bottom: 1rem;
   page-break-inside: avoid;
-  position: relative; /* For date positioning */
-  @apply avoid-break;
+  position: relative;
 }
 
 .job-title {
   font-weight: 600;
-  font-size: 10pt; /* Smaller font */
+  font-size: 10pt;
   color: #1e293b;
   display: inline-block;
-  width: 70%; /* Prevent overlap with date */
+  width: 70%;
 }
 
 .company-name {
   font-weight: 500;
-  font-size: 9.5pt; /* Smaller font */
+  font-size: 9.5pt;
   color: #4b5563;
-  display: block; /* Ensure it's on new line */
+  display: block;
 }
 
-/* === Date Alignment (Right-aligned) === */
 .date-range {
   position: absolute;
   top: 0;
   right: 0;
   font-weight: 500;
-  font-size: 9pt; /* Smaller font */
+  font-size: 9pt;
   color: #64748b;
-  text-align: right;
-  width: 30%; /* Fixed width to prevent overlap */
+  width: 30%;
+  white-space: nowrap;
 }
 
-/* === Summary Section === */
+/* === Summary === */
 .summary {
   font-size: 10pt;
-  line-height: 1.5; /* Tighter line height */
+  line-height: 1.5;
   text-align: justify;
 }
 
-/* === Remove button visibility === */
+/* === Remove Buttons === */
 .remove-btn {
   visibility: visible !important;
   opacity: 1 !important;
   display: inline-flex !important;
 }
 
-/* === PDF / Print View Adjustments === */
+/* === Print === */
 @media print {
   body, html {
     margin: 0 !important;
     padding: 0 !important;
-    background: #ffffff !important;
+    background: #fff !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-     @apply avoid-break;
   }
 
   .resume-container {
-    padding: 12mm 10mm !important; /* Smaller padding */
-    width: 210mm !important;
-    min-height: 297mm !important;
-    margin: 0 auto !important;
+    padding: 12mm 10mm !important;
     box-shadow: none !important;
-    gap: 0.8rem !important; /* Reduced gap */
-     @apply avoid-break;
+    gap: 0.8rem !important;
   }
 
   .resume-section {
     page-break-inside: avoid;
-    margin-bottom: 0.8rem !important; /* Reduced margin */
-     @apply avoid-break;
+    margin-bottom: 0.8rem !important;
   }
 
   .contact-info {
-    padding-bottom: 0.6rem !important; /* Reduced padding */
+    padding-bottom: 0.6rem !important;
   }
 
   .chip {
@@ -259,7 +250,6 @@
     print-color-adjust: exact;
   }
 
-  /* Ensure dates don't break to new line */
   .date-range {
     white-space: nowrap;
   }

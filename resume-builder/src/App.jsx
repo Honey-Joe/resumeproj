@@ -1,5 +1,5 @@
-// App.jsx
-import React, { useState } from 'react';
+// src/App.js
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BrowserRouter as Router,
@@ -7,7 +7,10 @@ import {
   Route,
   Navigate,
   useLocation,
+  useNavigate,
 } from 'react-router-dom';
+import { useCookies } from 'react-cookie';
+import { CookiesProvider } from 'react-cookie';
 import AuthPage from './components/AuthPage';
 import Header from './components/Header';
 import Hero from './components/Hero';
@@ -18,96 +21,96 @@ import Footer from './components/Footer';
 import AdminPanel from './components/AdminPanel';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
+// ✅ Gradient Wrapper
+const GradientLayout = ({ children }) => (
+  <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-blue-900 to-blue-800">
+    {children}
+  </div>
+);
+
 // ✅ User Private Route
 const UserPrivateRoute = ({ children }) => {
-  const token = localStorage.getItem('userToken');
-  return token ? children : <Navigate to="/AuthPage" />;
+  const [cookies] = useCookies(['userToken']);
+  return cookies.userToken ? children : <Navigate to="/AuthPage" />;
 };
 
-// ✅ Admin Private Route
 const AdminPrivateRoute = ({ children }) => {
-  const token = localStorage.getItem('adminToken');
-  return token ? children : <Navigate to="/AuthPage" />;
+  const [cookies] = useCookies(['adminToken']);
+  return cookies.adminToken ? children : <Navigate to="/AuthPage" />;
 };
 
-// ✅ Landing Page
-function LandingPage({ onStartBuilding, showBuilder }) {
+// ✅ Landing Page with navigation to builder
+function LandingPage() {
+  const navigate = useNavigate();
+
+  const handleStartBuilding = () => {
+    navigate('/builder');
+  };
+
+  return (
+    <GradientLayout>
+      <Header />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="landing"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <Hero onStartBuilding={handleStartBuilding} />
+          <Features />
+          <Examples />
+          <Footer />
+        </motion.div>
+      </AnimatePresence>
+    </GradientLayout>
+  );
+}
+
+// ✅ Main App
+function App() {
+  const [cookies] = useCookies(['user']);
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <Header onExport={onStartBuilding} />
-      <AnimatePresence mode="wait">
-        {!showBuilder ? (
-          <motion.div
-            key="landing"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <Hero onStartBuilding={onStartBuilding} />
-            <Features />
-            <Examples />
-            <Footer />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="builder"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <ResumeBuilder />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+    <Routes location={location}>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/AuthPage" element={<AuthPage />} />
 
-// ✅ Main App Component
-function App() {
-  const [showBuilder, setShowBuilder] = useState(false);
-
-  const handleStartBuilding = () => {
-    setShowBuilder(true);
-    window.scrollTo(0, 0);
-  };
-
-
-  return (
-    <Router>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <LandingPage
-              onStartBuilding={handleStartBuilding}
-              showBuilder={showBuilder}
-            />
-          }
-        />
-        <Route path="/AuthPage" element={<AuthPage />} />
-
-        <Route
-          path="/builder"
-          element={
+      <Route
+        path="/builder"
+        element={
             <UserPrivateRoute>
-              <ResumeBuilder />
+            <GradientLayout>
+              <Header />
+              <ResumeBuilder user={cookies.user} resumeData={cookies.resumeData} />
+              <Footer />
+            </GradientLayout>
             </UserPrivateRoute>
-          }
-        />
-        <Route
-          path="/adminpanel"
-          element={
-            <AdminPrivateRoute>
+        }
+      />
+
+      <Route
+        path="/adminpanel"
+        element={
+          <AdminPrivateRoute>
+            <GradientLayout>
               <AdminPanel />
-            </AdminPrivateRoute>
-          }
-        />
-      </Routes>
-    </Router>
+            </GradientLayout>
+          </AdminPrivateRoute>
+        }
+      />
+    </Routes>
   );
 }
 
-export default App;
+// ✅ App with Router
+export default function WrappedApp() {
+  return (
+    <CookiesProvider>
+      <Router>
+        <App />
+      </Router>
+    </CookiesProvider>
+  );
+}

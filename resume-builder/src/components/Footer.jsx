@@ -21,7 +21,7 @@ const Footer = () => {
                 />
               </div>
               <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-amber-300">
-                FWT Resume Builder
+                FreeWill Resume Builder
               </h3>
             </motion.div>
             
@@ -43,7 +43,7 @@ const Footer = () => {
             </motion.div>
           </div>
           
-          <div className="flex space-x-6">
+          <div className="flex space-x-1">
             <motion.a 
               href="#" 
               className="text-2xl text-blue-300 hover:text-amber-400 transition-colors"
@@ -78,20 +78,21 @@ const Footer = () => {
           </div>
         </div>
         
-        <div className="border-t border-blue-800 mt-6 pt-6 text-center">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-          >
-            <p className="text-blue-400 text-sm md:text-base">
-              &copy; 2025 FWT Resume Builder. All rights reserved.
-            </p>
-            <p className="text-blue-500 text-xs mt-2">
-              Designed with <i className="fas fa-heart text-amber-400"></i> by FreeWill Tech
-            </p>
-          </motion.div>
-        </div>
+       <div className="mt-6 pt-6 text-center border-t border-blue-700 shadow-[0_-1px_0_0_rgba(96,165,250,0.4)]">
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ delay: 0.5 }}
+  >
+    <p className="text-blue-400 text-sm md:text-base">
+      &copy; 2025 FWT Resume Builder. All rights reserved.
+    </p>
+    <p className="text-blue-500 text-xs mt-2">
+      Designed by FreeWillTech
+    </p>
+  </motion.div>
+</div>
+
       </div>
     </footer>
   );
