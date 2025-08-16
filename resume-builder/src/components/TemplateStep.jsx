@@ -800,24 +800,23 @@ case 'professional-classic':
       </div>
 
     {/* Watermark payment section */}
-      {selectedTemplate && (
-        <motion.div className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-700">
-          <div className="flex flex-col xm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h4 className="font-medium text-base text-slate-200">
-                {/* Improved verification logic */}
-                {unlockedTemplates.includes(selectedTemplate) 
-                  ? "✅ Watermark Removed" 
-                  : "Remove Watermark"}
-              </h4>
-              <p className="text-xs text-slate-400 mt-1">
-                {unlockedTemplates.includes(selectedTemplate) 
-                  ? "Your resume has no watermark"
-                  : "Pay ₹50 to remove watermark"}
-              </p>
-            </div>
-      
-      {unlockedTemplates.includes(selectedTemplate) ? (
+{selectedTemplate && (
+  <motion.div className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-700">
+    <div className="flex flex-col xm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h4 className="font-medium text-base text-slate-200">
+          {unlockedTemplates.some(t => t.name === selectedTemplate) 
+            ? "✅ Watermark Removed" 
+            : "Remove Watermark"}
+        </h4>
+        <p className="text-xs text-slate-400 mt-1">
+          {unlockedTemplates.some(t => t.name === selectedTemplate) 
+            ? "Your resume has no watermark"
+            : "Pay ₹50 to remove watermark"}
+        </p>
+      </div>
+
+      {unlockedTemplates.some(t => t.name === selectedTemplate) ? (
         <span className="text-green-400 font-medium flex items-center">
           <i className="fas fa-check-circle mr-2"></i>
           Watermark Removed
@@ -842,6 +841,7 @@ case 'professional-classic':
     </div>
   </motion.div>
 )}
+
     </div>
   );
 };
