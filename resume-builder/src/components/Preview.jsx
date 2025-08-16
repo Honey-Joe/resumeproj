@@ -127,12 +127,16 @@ const Preview = forwardRef(({ resumeData, onRefresh, onPdfStart, onPdfComplete, 
   const [baseScale, setBaseScale] = useState(1);
 
   // Check template unlock status
-  useEffect(() => {
+// In your Preview component, update the useEffect that checks unlocked status:
+useEffect(() => {
     if (resumeData?.template) {
-      const unlocked = unlockedTemplates.includes(resumeData.template);
-      setIsTemplateUnlocked(unlocked);
+        // Check if current template is in unlocked templates
+        const isUnlocked = unlockedTemplates.some(t => 
+            typeof t === 'string' ? t === resumeData.template : t?.name === resumeData.template
+        );
+        setIsTemplateUnlocked(isUnlocked);
     }
-  }, [resumeData?.template, unlockedTemplates]);
+}, [resumeData?.template, unlockedTemplates]);
 
   // Responsive layout detection
   useEffect(() => {
@@ -437,8 +441,13 @@ const textColor = {
 // Improved Watermark with adaptive color
 const Watermark = ({ text = 'FREE WILL TECHNOLOGIES', unlockedTemplates = [], templateId }) => {
     if (!templateId) return null;
-    const isUnlocked = unlockedTemplates.includes(templateId);
-    if (isUnlocked) return null; 
+    
+    // Check if template is unlocked by looking at template names
+    const isUnlocked = unlockedTemplates.some(t => 
+        typeof t === 'string' ? t === templateId : t?.name === templateId
+    );
+    
+    if (isUnlocked) return null;
 
     return (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">

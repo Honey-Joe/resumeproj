@@ -63,6 +63,7 @@ const AuthPage = () => {
       const { data } = await axios.post(url, payload, {
         headers: { 'Content-Type': 'application/json' },
       });
+      console.log("✅ Auth Response", data);
 
        if (data.success) {
       const { token, role, email, name } = data;
@@ -92,6 +93,7 @@ const AuthPage = () => {
         navigate("/builder");
       }
     }
+    localStorage.setItem("userEmail",data.email);
   } catch (err) {
       console.error('Auth error:', err);
       setError(

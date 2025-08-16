@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useCookies } from 'react-cookie';
-import StepWizard from './StepWizard';
-import PersonalStep from './PersonalStep';
-import EducationStep from './EducationStep';
-import ExperienceStep from './ExperienceStep';
-import SkillsStep from './SkillsStep';
-import ProjectsStep from './ProjectsStep';
-import TemplateStep from './TemplateStep';
-import HobbiesStep from './HobbiesStep';
-import Preview from './Preview';
-import { saveResumeData, sanitizeInput } from './resumeService';
-import '@fortawesome/fontawesome-free/css/all.min.css';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useCookies } from "react-cookie";
+import StepWizard from "./StepWizard";
+import PersonalStep from "./PersonalStep";
+import EducationStep from "./EducationStep";
+import ExperienceStep from "./ExperienceStep";
+import SkillsStep from "./SkillsStep";
+import ProjectsStep from "./ProjectsStep";
+import TemplateStep from "./TemplateStep";
+import HobbiesStep from "./HobbiesStep";
+import Preview from "./Preview";
+import { saveResumeData, sanitizeInput } from "./resumeService";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 
 const ResetConfirmationModal = ({ isOpen, onClose, onConfirm }) => {
   return (
@@ -34,7 +34,8 @@ const ResetConfirmationModal = ({ isOpen, onClose, onConfirm }) => {
               </div>
               <h3 className="text-2xl font-bold mb-2">Start New Resume?</h3>
               <p className="text-slate-300">
-                All current data will be permanently deleted. This action cannot be undone.
+                All current data will be permanently deleted. This action cannot
+                be undone.
               </p>
             </div>
 
@@ -62,45 +63,48 @@ const ResetConfirmationModal = ({ isOpen, onClose, onConfirm }) => {
 };
 
 const ResumeBuilder = () => {
-  const [cookies, setCookie] = useCookies(['resumeData', 'user']);
+  const [cookies, setCookie] = useCookies(["resumeData", "user"]);
   const previewRef = useRef(null);
   const [showResetModal, setShowResetModal] = useState(false);
 
   const user = cookies.user || {};
-  const userEmail = typeof user.email === 'string' ? user.email : '';
-  const userName = typeof user.name === 'string' ? user.name : '';
+  const userEmail = localStorage.getItem("userEmail");
+  const userName = typeof user.name === "string" ? user.name : "";
 
-  const [resumeData, setResumeData] = useState(cookies.resumeData || {
-    personal: {
-      name: '',
-      title: '',
-      email: '',
-      phone: '',
-      location: '',
-      linkedin: '',
-      github: '',
-      summary: ''
-    },
-    experience: [],
-    education: [],
-    projects: [],
-    programmingSkills: [],
-    frameworks: [],
-    softSkills: [],
-    hobbies: [],
-    template: 'blue'
-  });
+  const [resumeData, setResumeData] = useState(
+    cookies.resumeData || {
+      personal: {
+        name: "",
+        title: "",
+        email: "",
+        phone: "",
+        location: "",
+        linkedin: "",
+        github: "",
+        summary: "",
+      },
+      experience: [],
+      education: [],
+      projects: [],
+      programmingSkills: [],
+      frameworks: [],
+      softSkills: [],
+      hobbies: [],
+      template: "blue",
+    }
+  );
 
   const [unlockedTemplates, setUnlockedTemplates] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState({ success: false, message: '' });
+  const [saveStatus, setSaveStatus] = useState({ success: false, message: "" });
+  console.log("✅ ", unlockedTemplates);
 
   // Save resume data to cookies
   useEffect(() => {
-    setCookie('resumeData', resumeData, {
-      path: '/',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60
+    setCookie("resumeData", resumeData, {
+      path: "/",
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60,
     });
   }, [resumeData, setCookie]);
 
@@ -113,21 +117,19 @@ const ResumeBuilder = () => {
 
       try {
         const res = await fetch(
-          `https://apiresumebbuilder.freewilltech.in/get_unlocked_templates.php?email=${encodeURIComponent(userEmail)}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
+          `https://apiresumebbuilder.freewilltech.in/get_unlocked_templates.php?email=${encodeURIComponent(
+            userEmail
+          )}`
         );
         const data = await res.json();
-        if (data.status === 'success') {
+        console.log("ds",data);
+        if (data.status === "success") {
           setUnlockedTemplates(data.templates);
         } else {
-          console.warn('Failed to load templates:', data.message);
+          console.warn("Failed to load templates:", data.message);
         }
       } catch (err) {
-        console.error('Failed to fetch unlocked templates:', err);
+        console.error("Failed to fetch unlocked templates:", err);
       }
     };
 
@@ -135,24 +137,24 @@ const ResumeBuilder = () => {
   }, [userEmail, cookies.userToken]);
 
   const updateResumeData = useCallback((newData) => {
-    setResumeData(prev => ({
+    setResumeData((prev) => ({
       ...prev,
       ...newData,
-      personal: { ...prev.personal, ...(newData.personal || {}) }
+      personal: { ...prev.personal, ...(newData.personal || {}) },
     }));
   }, []);
 
   const handleResetConfirm = () => {
     const freshData = {
       personal: {
-        name: '',
-        title: '',
-        email: '',
-        phone: '',
-        location: '',
-        linkedin: '',
-        github: '',
-        summary: ''
+        name: "",
+        title: "",
+        email: "",
+        phone: "",
+        location: "",
+        linkedin: "",
+        github: "",
+        summary: "",
       },
       experience: [],
       education: [],
@@ -161,27 +163,30 @@ const ResumeBuilder = () => {
       frameworks: [],
       softSkills: [],
       hobbies: [],
-      template: 'blue'
+      template: "blue",
     };
     setResumeData(freshData);
     setUnlockedTemplates([]);
-    setSaveStatus({ success: true, message: 'Resume reset successfully!' });
-    setTimeout(() => setSaveStatus({ success: false, message: '' }), 3000);
+    setSaveStatus({ success: true, message: "Resume reset successfully!" });
+    setTimeout(() => setSaveStatus({ success: false, message: "" }), 3000);
     setShowResetModal(false);
   };
 
   const handleSaveToDB = async () => {
     setIsSaving(true);
-    setSaveStatus({ success: false, message: '' });
+    setSaveStatus({ success: false, message: "" });
     try {
       const sanitizedData = sanitizeInput(resumeData);
       await saveResumeData(sanitizedData);
-      setSaveStatus({ success: true, message: 'Resume saved successfully!' });
+      setSaveStatus({ success: true, message: "Resume saved successfully!" });
     } catch (err) {
-      setSaveStatus({ success: false, message: err.message || 'Failed to save resume.' });
+      setSaveStatus({
+        success: false,
+        message: err.message || "Failed to save resume.",
+      });
     } finally {
       setIsSaving(false);
-      setTimeout(() => setSaveStatus({ success: false, message: '' }), 3000);
+      setTimeout(() => setSaveStatus({ success: false, message: "" }), 3000);
     }
   };
 
@@ -202,23 +207,25 @@ const ResumeBuilder = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
             className={`fixed top-5 left-1/2 transform -translate-x-1/2 z-50 rounded-xl shadow-lg px-6 py-3 text-center text-white ${
-              saveStatus.success ? 'bg-emerald-600' : 'bg-rose-700'
+              saveStatus.success ? "bg-emerald-600" : "bg-rose-700"
             } border`}
           >
             <div className="flex items-center justify-center gap-3">
               <i
                 className={`text-xl ${
-                  saveStatus.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'
+                  saveStatus.success
+                    ? "fas fa-check-circle"
+                    : "fas fa-exclamation-circle"
                 }`}
               />
               <span>{saveStatus.message}</span>
             </div>
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: '100%' }}
+              animate={{ width: "100%" }}
               transition={{ duration: 3 }}
               className={`h-1 mt-2 ${
-                saveStatus.success ? 'bg-emerald-300' : 'bg-rose-300'
+                saveStatus.success ? "bg-emerald-300" : "bg-rose-300"
               }`}
             />
           </motion.div>
@@ -232,7 +239,9 @@ const ResumeBuilder = () => {
         transition={{ duration: 0.6 }}
         className="text-center mb-14"
       >
-        <h2 className="text-4xl md:text-5xl font-bold mb-3">Build Your Perfect Resume</h2>
+        <h2 className="text-4xl md:text-5xl font-bold mb-3">
+          Build Your Perfect Resume
+        </h2>
         <p className="text-slate-300 max-w-2xl mx-auto">
           Fill in your details and watch your resume come to life in real-time.
         </p>
@@ -242,13 +251,34 @@ const ResumeBuilder = () => {
         {/* Form Panel */}
         <div className="lg:col-span-1">
           <div className="rounded-2xl p-6 bg-slate-800/70 border border-blue-500/30 backdrop-blur">
-            <StepWizard resumeData={resumeData} updateResumeData={updateResumeData}>
-              <PersonalStep resumeData={resumeData} updateResumeData={updateResumeData} />
-              <EducationStep resumeData={resumeData} updateResumeData={updateResumeData} />
-              <ExperienceStep resumeData={resumeData} updateResumeData={updateResumeData} />
-              <SkillsStep resumeData={resumeData} updateResumeData={updateResumeData} />
-              <ProjectsStep resumeData={resumeData} updateResumeData={updateResumeData} />
-              <HobbiesStep resumeData={resumeData} updateResumeData={updateResumeData} />
+            <StepWizard
+              resumeData={resumeData}
+              updateResumeData={updateResumeData}
+            >
+              <PersonalStep
+                resumeData={resumeData}
+                updateResumeData={updateResumeData}
+              />
+              <EducationStep
+                resumeData={resumeData}
+                updateResumeData={updateResumeData}
+              />
+              <ExperienceStep
+                resumeData={resumeData}
+                updateResumeData={updateResumeData}
+              />
+              <SkillsStep
+                resumeData={resumeData}
+                updateResumeData={updateResumeData}
+              />
+              <ProjectsStep
+                resumeData={resumeData}
+                updateResumeData={updateResumeData}
+              />
+              <HobbiesStep
+                resumeData={resumeData}
+                updateResumeData={updateResumeData}
+              />
               <TemplateStep
                 resumeData={resumeData}
                 updateResumeData={updateResumeData}
@@ -267,6 +297,7 @@ const ResumeBuilder = () => {
                 resumeData={resumeData}
                 unlockedTemplates={unlockedTemplates}
               />
+              {console.log("✅ sdffd", unlockedTemplates)}
             </div>
 
             {/* Actions */}
@@ -284,8 +315,8 @@ const ResumeBuilder = () => {
                 disabled={isSaving}
                 className={`px-6 py-2.5 rounded-xl font-semibold text-white transition shadow ${
                   isSaving
-                    ? 'bg-indigo-800 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
+                    ? "bg-indigo-800 cursor-not-allowed"
+                    : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
                 }`}
               >
                 {isSaving ? (
