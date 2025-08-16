@@ -178,7 +178,6 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
             });
 
             const verifyData = verifyRes.data;
-            console.log("✅ Payment Verified Response:", verifyData);
 
             if (verifyData?.status === 'success') {
               await fetchUnlockedTemplates();

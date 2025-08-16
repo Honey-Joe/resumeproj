@@ -97,7 +97,6 @@ const ResumeBuilder = () => {
   const [unlockedTemplates, setUnlockedTemplates] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState({ success: false, message: "" });
-  console.log("✅ ", unlockedTemplates);
 
   // Save resume data to cookies
   useEffect(() => {
@@ -122,7 +121,6 @@ const ResumeBuilder = () => {
           )}`
         );
         const data = await res.json();
-        console.log("ds",data);
         if (data.status === "success") {
           setUnlockedTemplates(data.templates);
         } else {
@@ -297,7 +295,7 @@ const ResumeBuilder = () => {
                 resumeData={resumeData}
                 unlockedTemplates={unlockedTemplates}
               />
-              {console.log("✅ sdffd", unlockedTemplates)}
+              
             </div>
 
             {/* Actions */}
