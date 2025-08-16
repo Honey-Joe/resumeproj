@@ -5,7 +5,7 @@
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token, X-Requested-With");
+header("Access-Control-Allow-Headers: Content-Type, X-Requested-With");
 header("Content-Type: application/json");
 
 // ----------------------------
@@ -20,32 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // ✅ Include DB connection
 // ----------------------------
 require_once 'db.php';
-
-// ----------------------------
-// ✅ Token Extraction
-// ----------------------------
-$headers = getallheaders();
-$authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
-
-$token = '';
-if (!empty($authHeader) && preg_match('/Bearer\s(.+)/i', $authHeader, $matches)) {
-    $token = trim($matches[1]);
-}
-
-// ----------------------------
-// 🔐 Validate Token
-// ----------------------------
-if (empty($token)) {
-    http_response_code(401);
-    echo json_encode(["status" => "error", "message" => "Missing token"]);
-    exit;
-}
-
-if ($token !== 'adminsecret') {
-    http_response_code(401);
-    echo json_encode(["status" => "error", "message" => "Invalid token"]);
-    exit;
-}
 
 // ----------------------------
 // 📩 Get email from query
@@ -99,7 +73,6 @@ $conn->close();
 // ----------------------------
 // ✅ Success Response
 // ----------------------------
-header('Content-Type: application/json');
 echo json_encode([
     "status" => "success",
     "templates" => $templates

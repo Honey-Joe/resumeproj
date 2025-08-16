@@ -190,7 +190,7 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
 
            if (verifyData?.status === 'success') {
       setShowSuccessPopup(true);
-      setUnlockedTemplates(prev => [...prev, selectedTemplate]);
+      setUnlockedTemplates(prev => [...prev, { name: template.id }]);
       await fetchUnlockedTemplates();
       
       // Scroll to the success popup after a short delay
