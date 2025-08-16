@@ -56,6 +56,8 @@ const Header = () => {
     removeCookie('adminToken');
     removeCookie('user');
     removeCookie('resumeData');
+    localStorage.removeItem('resumeData');
+    localStorage.removeItem('userEmail');
     navigate('/');
   };
 
