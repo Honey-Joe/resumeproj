@@ -54,6 +54,15 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
   const userEmail = cookies.userData?.email || "";
   const userName = cookies.userData?.name || "";
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const successPopupRef = useRef(null);  // Add ref for the popup
+  const [shouldScrollToTop, setShouldScrollToTop] = useState(false);
+
+   useEffect(() => {
+    if (shouldScrollToTop) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setShouldScrollToTop(false);
+    }
+  }, [shouldScrollToTop]);
 
   // Load Razorpay script
   useEffect(() => {
@@ -179,10 +188,21 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
 
             const verifyData = verifyRes.data;
 
-            if (verifyData?.status === 'success') {
-              await fetchUnlockedTemplates();
-              setShowSuccessPopup(true);
-            } else {
+           if (verifyData?.status === 'success') {
+      setShowSuccessPopup(true);
+      setUnlockedTemplates(prev => [...prev, selectedTemplate]);
+      await fetchUnlockedTemplates();
+      
+      // Scroll to the success popup after a short delay
+      setTimeout(() => {
+        if (successPopupRef.current) {
+          successPopupRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
+      }, 300);
+    } else {
               const message = verifyData?.message || "Verification failed";
               alert("❌ Payment verification failed: " + message);
             }
@@ -566,12 +586,13 @@ case 'professional-classic':
   return (
     <div className="max-w-4xl mx-auto px-3 relative">
       {showSuccessPopup && (
-  <motion.div
-    className="fixed inset-0 bg-black/80 z-[1000] flex items-center justify-center p-4"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-  >
+        <motion.div
+        ref={successPopupRef}
+          className="fixed inset-0 bg-black/80 z-[1000] flex items-center justify-center p-4 overflow-auto"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
     <motion.div
       className="bg-gradient-to-br from-indigo-900 to-indigo-950 rounded-2xl p-10 max-w-xl w-full border-2 border-indigo-600 shadow-2xl relative overflow-hidden"
       initial={{ scale: 0.8, opacity: 0 }}
@@ -778,53 +799,49 @@ case 'professional-classic':
         })}
       </div>
 
-      {/* Watermark payment section */}
+    {/* Watermark payment section */}
       {selectedTemplate && (
-        <motion.div 
-          className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-700"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+        <motion.div className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-700">
           <div className="flex flex-col xm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h4 className="font-medium text-base text-slate-200">
+                {/* Improved verification logic */}
                 {unlockedTemplates.includes(selectedTemplate) 
-                  ? "Watermark Removed" 
+                  ? "✅ Watermark Removed" 
                   : "Remove Watermark"}
               </h4>
               <p className="text-xs text-slate-400 mt-1">
                 {unlockedTemplates.includes(selectedTemplate) 
-                  ? "Your resume has no Watermark"
+                  ? "Your resume has no watermark"
                   : "Pay ₹50 to remove watermark"}
               </p>
             </div>
-            
-            {unlockedTemplates.includes(selectedTemplate) ? (
-              <span className="text-green-400 font-medium flex items-center">
-                <i className="fas fa-check-circle mr-2"></i>
-                Watermark Removed
-              </span>
-            ) : (
-              <button
-                className={`py-2 px-5 rounded-md text-white font-medium text-sm flex items-center justify-center ${
-                  paymentProcessing ? 'bg-slate-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
-                onClick={handlePayment}
-                disabled={paymentProcessing || !isRazorpayLoaded}
-              >
-                {paymentProcessing ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin mr-2"></i> Processing...
-                  </>
-                ) : (
-                  "Pay ₹50 to Remove Watermark"
-                )}
-              </button>
-            )}
-          </div>
-        </motion.div>
+      
+      {unlockedTemplates.includes(selectedTemplate) ? (
+        <span className="text-green-400 font-medium flex items-center">
+          <i className="fas fa-check-circle mr-2"></i>
+          Watermark Removed
+        </span>
+      ) : (
+        <button
+          className={`py-2 px-5 rounded-md text-white font-medium text-sm flex items-center justify-center ${
+            paymentProcessing ? 'bg-slate-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+          }`}
+          onClick={handlePayment}
+          disabled={paymentProcessing || !isRazorpayLoaded}
+        >
+          {paymentProcessing ? (
+            <>
+              <i className="fas fa-spinner fa-spin mr-2"></i> Processing...
+            </>
+          ) : (
+            "Pay ₹50 to Remove Watermark"
+          )}
+        </button>
       )}
+    </div>
+  </motion.div>
+)}
     </div>
   );
 };
