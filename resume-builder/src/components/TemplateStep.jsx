@@ -56,6 +56,7 @@ const TemplateStep = ({ resumeData, updateResumeData }) => {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const successPopupRef = useRef(null);  // Add ref for the popup
   const [shouldScrollToTop, setShouldScrollToTop] = useState(false);
+  const isUnlocked = unlockedTemplates.includes(selectedTemplate);
 
    useEffect(() => {
     if (shouldScrollToTop) {
@@ -799,51 +800,50 @@ case 'professional-classic':
         })}
       </div>
 
-    {/* Watermark payment section */}
+{/* Watermark payment section */}
 {selectedTemplate && (
   <motion.div className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-700">
-    <div className="flex flex-col xm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex flex-col xs:flex-row sm:items-center justify-between gap-4">
       <div>
         <h4 className="font-medium text-base text-slate-200">
-  {unlockedTemplates.some(t => 
-    typeof t === "string" ? t === selectedTemplate : t?.name === selectedTemplate
-  ) ? "✅ Watermark Removed" : "Remove Watermark"}
-</h4>
-<p className="text-xs text-slate-400 mt-1">
-  {unlockedTemplates.some(t => 
-    typeof t === "string" ? t === selectedTemplate : t?.name === selectedTemplate
-  ) ? "Your resume has no watermark" : "Pay ₹50 to remove watermark"}
-</p>
+          {unlockedTemplates.includes(selectedTemplate)
+            ? "✅ Watermark Removed"
+            : "Remove Watermark"}
+        </h4>
+        <p className="text-xs text-slate-400 mt-1">
+          {unlockedTemplates.includes(selectedTemplate)
+            ? "Your resume has no watermark"
+            : "Pay ₹50 to remove watermark"}
+        </p>
       </div>
 
-      {unlockedTemplates.some(t => 
-  typeof t === "string" ? t === selectedTemplate : t?.name === selectedTemplate
-) ? (
-  <span className="text-green-400 font-medium flex items-center">
-    <i className="fas fa-check-circle mr-2"></i>
-    Watermark Removed
-  </span>
-) : (
-  <button
-    className={`py-2 px-5 rounded-md text-white font-medium text-sm flex items-center justify-center ${
-      paymentProcessing ? 'bg-slate-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-    }`}
-    onClick={handlePayment}
-    disabled={paymentProcessing || !isRazorpayLoaded}
-  >
-    {paymentProcessing ? (
-      <>
-        <i className="fas fa-spinner fa-spin mr-2"></i> Processing...
-      </>
-    ) : (
-      "Pay ₹50 to Remove Watermark"
-    )}
-  </button>
-)}
+      {unlockedTemplates.includes(selectedTemplate) ? (
+        <span className="text-green-400 font-medium flex items-center">
+          <i className="fas fa-check-circle mr-2"></i>
+          Watermark Removed
+        </span>
+      ) : (
+        <button
+          className={`py-2 px-5 rounded-md text-white font-medium text-sm flex items-center justify-center ${
+            paymentProcessing
+              ? "bg-slate-600 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700"
+          }`}
+          onClick={handlePayment}
+          disabled={paymentProcessing || !isRazorpayLoaded}
+        >
+          {paymentProcessing ? (
+            <>
+              <i className="fas fa-spinner fa-spin mr-2"></i> Processing...
+            </>
+          ) : (
+            "Pay ₹50 to Remove Watermark"
+          )}
+        </button>
+      )}
     </div>
   </motion.div>
 )}
-
     </div>
   );
 };
