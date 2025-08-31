@@ -156,10 +156,7 @@ const AdminPanel = () => {
     
     const response = await axios.get(
       `https://apiresumebbuilder.freewilltech.in/get_unlocked_templates.php?email=${email}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        withCredentials: true 
-      }
+     
     );
 
     setTemplates(response.data.templates || []);
